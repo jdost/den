@@ -11,6 +11,8 @@ import os
 import os.path
 import sys
 
+HOME = os.path.expanduser("~")
+
 
 def align_table(table_data, max_length=99999, min_length=1, seperator=" "):
     """Align columnar data for output
@@ -48,7 +50,7 @@ def base_dir(*matches):
     directory = os.getcwd()
     while not any([os.path.exists(m) for m in matches]):
         os.chdir("..")
-        if os.getcwd() == "/":
+        if os.getcwd() == "/" or os.getcwd() == HOME:
             break
 
     value = os.getcwd()
@@ -57,7 +59,7 @@ def base_dir(*matches):
     return value
 
 
-def bind_commands(module_name, parent_cmd):
+def bind_module(module_name, parent_cmd):
     """Binds commands to a parent subcommand from a module
 
     This is currently a work in progress on module discovery, this will
@@ -90,7 +92,7 @@ def cached_property(func):
 
 
 @contextlib.contextmanager
-def report_success(msg):
+def report_success(msg, debug=False, abort=True):
     """Context wrapper for reporting success of a step
 
     Prints the step text and then a success or failure suffix depending on if
@@ -101,6 +103,8 @@ def report_success(msg):
         yield
         click.echo("done")
     except:
-        raise
         click.echo("error")
-        sys.exit(1)
+        if debug:
+            raise
+        if abort:
+            sys.exit(1)

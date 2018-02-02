@@ -1,8 +1,10 @@
 import click
 import docker
+import os.path
 import utils
 
 from config import Config
+from click_ext import SmartGroup
 
 CONTEXT_SETTINGS = {
     "help_option_names": ["-h", "--help"],
@@ -29,8 +31,12 @@ class Context(object):
     def docker(self):
         return docker.from_env()
 
+    @utils.cached_property
+    def default_name(self):
+        return os.path.basename(self.cwd)
 
-@click.group("den", context_settings=CONTEXT_SETTINGS)
+
+@click.group("den", context_settings=CONTEXT_SETTINGS, cls=SmartGroup)
 def den():
     """Easy development environments aka development dens"""
     pass
@@ -38,7 +44,7 @@ def den():
 
 def main():
     """Setup and call of the object"""
-    utils.bind_commands("den.commands.dens", den)
+    utils.bind_module("den.commands.dens", den)
     den(obj=Context())
 
 

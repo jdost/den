@@ -6,24 +6,20 @@ are used to exist in the docker instance (or be able to be pulled down).
 """
 import click
 import os
-import os.path
 import sys
+
 from docker.types import Mount
+from datetime import datetime
+
 from .. import shell
 from .. import utils
 
-from datetime import datetime
 
 DOCKER_CREATE_CMD = ("docker create --hostname {name} --interactive "
     "--label den --name {name} --tty --volume {cwd}:/src {image}")
 DOCKER_START_CMD = "docker start --attach --interactive {name}"
 DOCKER_STOP_CMD = "docker stop --time 1 {name}"
 DOCKER_DELETE_CMD = "docker rm --force {name}"
-
-def _start_container(name):
-    click.echo("Starting `{}` environment...".format(name))
-    shell.run(DOCKER_START_CMD.format(**locals()), interactive=True,
-              suppress=True)
 
 
 # > den create [OPTIONS] [<name>] [-- <cmd>]
@@ -47,7 +43,7 @@ def create_den(context, start, image, name, cmd):
         print("There is no defined image to build off of.")
         sys.exit(1)
 
-    name = name if name else os.path.basename(context.cwd)
+    name = name if name else context.default_name
     cmd = cmd if cmd else context.config.get("image", "command")
     cwd = (context.cwd + "/") if not context.cwd.endswith("/") else context.cwd
 
@@ -63,7 +59,7 @@ def create_den(context, start, image, name, cmd):
         shell.run(DOCKER_CREATE_CMD.format(**locals()) + cmd, quiet=shell.ALL)
 
     if start:
-        _start_container(name)
+        start_den.callback(name)
 
 
 # > den start [<name>]
@@ -73,8 +69,10 @@ def create_den(context, start, image, name, cmd):
 def start_den(context, name):
     """Starts the specified development den
     """
-    name = name if name else os.path.basename(context.cwd)
-    _start_container(name)
+    name = name if name else context.default_name
+    click.echo("Starting `{}` environment...".format(name))
+    shell.run(DOCKER_START_CMD.format(**locals()), interactive=True,
+              suppress=True)
 
 
 # > den stop [<name>]
@@ -84,21 +82,36 @@ def start_den(context, name):
 def stop_den(context, name):
     """Stops the specified develoment den
     """
-    name = name if name else os.path.basename(context.cwd)
+    name = name if name else context.default_name
     with utils.report_success("Spinning down `{}` environment".format(name)):
         shell.run(DOCKER_STOP_CMD.format(**locals()), quiet=shell.ALL)
 
 
 # > den delete [<name>]
 @click.command("delete")
-@click.argument("name", required=False, default=None)  # Name for the den
+@click.option("-a", "--all", is_flag=True, default=False,
+              help="Delete all dens")
+@click.argument("names", required=False, nargs=-1, default=None)  # Name for the den
 @click.pass_obj
-def delete_den(context, name):
-    """Deletes the specified development den
+def delete_den(context, all, names):
+    """Deletes the specified development den(s)
+
+    Will attempt to delete the specified dens.
     """
-    name = name if name else os.path.basename(context.cwd)
-    with utils.report_success("Removing the `{}` environment".format(name)):
-        shell.run(DOCKER_DELETE_CMD.format(**locals()), quiet=shell.ALL)
+    if all:
+        den_filter = {"all": True, "filters": {"label": "den"}}
+        names = [container.name for container
+                 in context.docker.containers.list(**den_filter)]
+        if len(names):
+            click.confirm("This will delete the containers: "
+                          "{}".format(", ".join(names)), abort=True)
+    elif names is None:
+        names = [context.default_name]
+
+    for name in names:
+        with utils.report_success("Removing the `{}` environment".format(name),
+                abort=False):
+            shell.run(DOCKER_DELETE_CMD.format(**locals()), quiet=shell.ALL)
 
 
 # > den list
@@ -108,6 +121,9 @@ def delete_den(context, name):
 @click.pass_obj
 def list_dens(context, running):
     """List the existing den containers
+
+    Filters based on the metadata label applied and gives a simple summary of
+    the state of containers running.
     """
     kwargs = {
         "all": not running,
