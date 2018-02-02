@@ -3,6 +3,18 @@
 These are all of the commands associated with the lifespan of a "den" container
 from creation, starting, stopping, and deleting.  This expects the images that
 are used to exist in the docker instance (or be able to be pulled down).
+
+Config settings::
+    [image]
+    default=image_tag  # image tag in docker to create
+    command=/shell/command  # command to execute in the container (should
+        # probably be a shell)
+
+    [ports]
+    <CONTAINER_PORT>=<HOST_PORT>  # port forwards to make to localhost, where
+        # 80=8080 would mean container:80 is reached from the localhost:8080
+        # on the host system, if no host port is specified, it will be the same
+        # port
 """
 import click
 import os
