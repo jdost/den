@@ -68,9 +68,14 @@ def bind_module(module_name, parent_cmd):
     their class type.
     """
     module = importlib.import_module(module_name, __name__)
-    for member_name in dir(module):
+    if hasattr(module, "__commands__"):
+        targets = getattr(module, "__commands__")
+    else:
+        targets = dir(module)
+
+    for member_name in targets:
         member = getattr(module, member_name)
-        if type(member) is click.Command:
+        if isinstance(member, click.Command):
             parent_cmd.add_command(member)
 
 

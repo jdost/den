@@ -9,7 +9,9 @@ from click_ext import SmartGroup
 CONTEXT_SETTINGS = {
     "help_option_names": ["-h", "--help"],
 }
-CONFIG_FILES = [".den.ini", "~/.config/den.ini", "~/.den.ini"]
+LOCAL_CONFIG_FILE = ".den.ini"
+USER_CONFIG_FILE = (click.get_app_dir("den") + ".ini").replace(utils.HOME, "~")
+CONFIG_FILES = [LOCAL_CONFIG_FILE, USER_CONFIG_FILE]
 
 
 class Context(object):
@@ -45,6 +47,7 @@ def den():
 def main():
     """Setup and call of the object"""
     utils.bind_module("den.commands.dens", den)
+    utils.bind_module("den.commands.config", den)
     den(obj=Context())
 
 

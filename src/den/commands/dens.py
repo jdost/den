@@ -21,6 +21,9 @@ DOCKER_START_CMD = "docker start --attach --interactive {name}"
 DOCKER_STOP_CMD = "docker stop --time 1 {name}"
 DOCKER_DELETE_CMD = "docker rm --force {name}"
 
+__commands__ = ["create_den", "start_den", "stop_den", "delete_den",
+                "list_dens"]
+
 
 # > den create [OPTIONS] [<name>] [-- <cmd>]
 @click.command("create")
