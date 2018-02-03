@@ -10,13 +10,15 @@ import subprocess
 import sys
 import utils
 
+from click import ClickException
+
 STDOUT = 1
 STDERR = 2
 ALL = STDOUT | STDERR
 DEVNULL = os.open(os.devnull, os.O_RDWR)  # Taken from the 3.x codebase
 
 
-class CommandFailure(Exception):
+class CommandFailure(ClickException):
     """Exception thrown by ::run function if `suppress` is turned off
 
     Wraps up the definition of a failed command run into an exception and
@@ -25,7 +27,7 @@ class CommandFailure(Exception):
     """
     def __init__(self, cmd, exitcode):
         msg = "command: {} failed with {!s}".format(cmd, exitcode)
-        Exception.__init__(self, msg)
+        ClickException.__init__(self, msg)
 
 
 def run(cmd, interactive=False, quiet=0, cwd=None, env=None, wait=True, suppress=False):

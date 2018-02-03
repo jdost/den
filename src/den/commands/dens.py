@@ -18,7 +18,6 @@ Config settings::
 """
 import click
 import os
-import sys
 
 from docker.types import Mount
 from datetime import datetime
@@ -37,8 +36,14 @@ __commands__ = ["create_den", "start_den", "stop_den", "delete_den",
                 "list_dens"]
 
 
+class UndefinedImageException(click.ClickException):
+    def __init__(self):
+        click.ClickException.__init__(
+            self, "There is no defined image to build off of.")
+
+
 # > den create [OPTIONS] [<name>] [-- <cmd>]
-@click.command("create")
+@click.command("create", short_help="Create a new den")
 @click.option("-s", "--start", is_flag=True, default=False,
               help="Start the den upon creation")
 @click.option("-i", "--image", default=None, help="Image to build off of")
@@ -55,8 +60,7 @@ def create_den(context, start, image, name, cmd):
     use_default = image != None
     image = image if image else context.config.get("image", "default", False)
     if not image:
-        print("There is no defined image to build off of.")
-        sys.exit(1)
+        raise UndefinedImageException()
 
     name = name if name else context.default_name
     cmd = cmd if cmd else context.config.get("image", "command")
@@ -78,7 +82,7 @@ def create_den(context, start, image, name, cmd):
 
 
 # > den start [<name>]
-@click.command("start")
+@click.command("start", short_help="Start an existing den")
 @click.argument("name", required=False, default=None)  # Name for the den
 @click.pass_obj
 def start_den(context, name):
@@ -91,7 +95,7 @@ def start_den(context, name):
 
 
 # > den stop [<name>]
-@click.command("stop")
+@click.command("stop", short_help="Stop a running den")
 @click.argument("name", required=False, default=None)  # Name for the den
 @click.pass_obj
 def stop_den(context, name):
@@ -103,7 +107,7 @@ def stop_den(context, name):
 
 
 # > den delete [<name>]
-@click.command("delete")
+@click.command("delete", short_help="Delete an existing den")
 @click.option("-a", "--all", is_flag=True, default=False,
               help="Delete all dens")
 @click.argument("names", required=False, nargs=-1, default=None)  # Name for the den
@@ -120,7 +124,7 @@ def delete_den(context, all, names):
         if len(names):
             click.confirm("This will delete the containers: "
                           "{}".format(", ".join(names)), abort=True)
-    elif names is None:
+    elif not names:
         names = [context.default_name]
 
     for name in names:
@@ -130,7 +134,7 @@ def delete_den(context, all, names):
 
 
 # > den list
-@click.command("list")
+@click.command("list", short_help="List current dens")
 @click.option("-r", "--running", is_flag=True, default=False,
               help="Only display running dens")
 @click.pass_obj
@@ -146,6 +150,8 @@ def list_dens(context, running):
     }
     output = [["NAME", "STATUS", "IMAGE"]]
     for container in context.docker.containers.list(**kwargs):
-        output.append([container.name, container.status, container.image.tags[0]])
+        tag = container.image.tags[0] if len(container.image.tags) \
+                else container.image.short_id
+        output.append([container.name, container.status, tag])
 
-    print("\n".join(utils.align_table(output, min_length=8)))
+    click.echo("\n".join(utils.align_table(output, min_length=8)))

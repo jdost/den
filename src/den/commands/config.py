@@ -8,7 +8,6 @@ import click
 import ConfigParser
 import contextlib
 import os.path
-import sys
 
 from .. import LOCAL_CONFIG_FILE, USER_CONFIG_FILE
 from ..click_ext import SmartGroup
@@ -16,6 +15,13 @@ from ..click_ext import SmartGroup
 __commands__ = ["config_group"]
 
 GET_OUTPUT_FORMAT = "{section}.{key} = {value}"
+
+
+class MissingConfigurationException(click.ClickException):
+    def __init__(self, section, key=None):
+        msg = "No `{}` section defined.".format(section) if not key \
+                else "No `{}.{}` option defined.".format(section, key)
+        click.ClickException.__init__(self, msg)
 
 
 def _expand(section, key=None, key_required=True):
@@ -64,7 +70,8 @@ located at {} instead.
 """.format(LOCAL_CONFIG_FILE, USER_CONFIG_FILE)
 
 # > den config <...>
-@click.group("config", help=CONFIG_HELP, cls=SmartGroup)
+@click.group("config", help=CONFIG_HELP, cls=SmartGroup,
+             short_help="Modify and view configuration values")
 @click.option("-u", "--user", is_flag=True, default=False,
               help="Use the user level configuration.")
 @click.pass_obj
@@ -76,7 +83,7 @@ def config_group(context, user):
 
 
 # > den config get <section> [<key>]
-@config_group.command("get")
+@config_group.command("get", short_help="Lookup configuration value(s)")
 @click.argument("section")  # Name of section to get
 @click.argument("key", required=False, default=None)  # Name of the key
 @click.pass_obj
@@ -99,14 +106,12 @@ def get_value(context, section, key):
             for key, value in parser.items(section):
                 click.echo(GET_OUTPUT_FORMAT.format(**locals()))
     except ConfigParser.NoSectionError:
-        print("No `{}` section defined.".format(section))
-        sys.exit(1)
+        raise MissingConfigurationException(section)
     except ConfigParser.NoOptionError:
-        print("No `{}.{}` option defined.".format(section, key))
-        sys.exit(1)
+        raise MissingConfigurationException(section, key)
 
 # > den config set <section> [<key>] <value>
-@config_group.command("set")
+@config_group.command("set", short_help="Define a new configuration value")
 @click.argument("section", nargs=-1, metavar="SECTION [KEY]")  # Name of section to get
 @click.argument("value", default=None)
 @click.pass_obj
@@ -124,7 +129,7 @@ def set_value(context, section, value):
         parser.set(section, key, value)
 
 # > den config rm <section> [<key>]
-@config_group.command("rm")
+@config_group.command("rm", short_help="Delete configuration value(s)")
 @click.argument("section")  # Name of the section
 @click.argument("key", required=False, default=None)  # Name of the key
 @click.pass_obj

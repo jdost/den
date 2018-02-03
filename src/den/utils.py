@@ -51,10 +51,10 @@ def base_dir(*matches):
     while not any([os.path.exists(m) for m in matches]):
         os.chdir("..")
         if os.getcwd() == "/" or os.getcwd() == HOME:
+            os.chdir(directory)
             break
 
     value = os.getcwd()
-    os.chdir(directory)
 
     return value
 
