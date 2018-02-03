@@ -12,6 +12,8 @@ import utils
 
 from click import ClickException
 
+import log
+
 STDOUT = 1
 STDERR = 2
 ALL = STDOUT | STDERR
@@ -41,7 +43,10 @@ def run(cmd, interactive=False, quiet=0, cwd=None, env=None, wait=True, suppress
     finish.
     """
     if interactive:  # don't quiet the output streams interactively
+        log.debug("Running command `{}` interactively.".format(cmd))
         quiet=0
+    else:
+        log.debug("Running command `{}`.".format(cmd))
 
     action = subprocess.Popen(
         cmd.split(' '),
@@ -59,6 +64,7 @@ def run(cmd, interactive=False, quiet=0, cwd=None, env=None, wait=True, suppress
     if suppress:
         return action.returncode
     elif action.returncode:
+        log.error("Command `{}` failed.".format(cmd))
         raise CommandFailure(cmd, action.returncode)
     else:
         return action.returncode

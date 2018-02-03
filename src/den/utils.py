@@ -5,11 +5,9 @@ shareable for.  Basically a cop-out in scope definition but also kind of the
 catchall for misc helpers.
 """
 import click
-import contextlib
 import importlib
 import os
 import os.path
-import sys
 
 HOME = os.path.expanduser("~")
 
@@ -94,22 +92,3 @@ def cached_property(func):
         return getattr(self, cached_name)
 
     return property(cached_caller)
-
-
-@contextlib.contextmanager
-def report_success(msg, debug=False, abort=True):
-    """Context wrapper for reporting success of a step
-
-    Prints the step text and then a success or failure suffix depending on if
-    the context raised an error or not.
-    """
-    click.echo(msg + "...", nl=False)
-    try:
-        yield
-        click.echo("done")
-    except:
-        click.echo("error")
-        if debug:
-            raise
-        if abort:
-            sys.exit(1)

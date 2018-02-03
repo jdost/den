@@ -1,6 +1,18 @@
+"""Base definition for CLI application
+
+Defines the top level command group, shared application context, sets up the
+logging level, and defines the command modules to bind to the base group
+definition.
+
+Config settings::
+    [default]
+    debug=1  # equivalent to the `-d`//`--debug` flag on all calls
+    verbosity=N  # equivalent to the number of `-v` flags set on all calls
+"""
 import click
 import docker
 import os.path
+import log
 import utils
 
 from config import Config
@@ -39,9 +51,23 @@ class Context(object):
 
 
 @click.group("den", context_settings=CONTEXT_SETTINGS, cls=SmartGroup)
-def den():
+@click.option("-v", "--verbose", count=True, help="Set verbose logging")
+@click.option("-d", "--debug", is_flag=True, default=False)
+@click.pass_obj
+def den(context, verbose, debug):
     """Easy development environments aka development dens"""
-    pass
+    if not verbose:
+        verbose = int(context.config.get("default", "verbosity", "0"))
+    if not debug:
+        debug = context.config.get("default", "debug")
+
+    if debug:
+        verbose = log.DEBUG
+    elif verbose:
+        pass
+
+    log.set_level(verbose)
+    context.debug = debug
 
 
 def main():

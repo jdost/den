@@ -10,6 +10,7 @@ import contextlib
 import os.path
 
 from .. import LOCAL_CONFIG_FILE, USER_CONFIG_FILE
+from .. import log
 from ..click_ext import SmartGroup
 
 __commands__ = ["config_group"]
@@ -101,10 +102,10 @@ def get_value(context, section, key):
     try:
         if key:
             value = parser.get(section, key)
-            click.echo(GET_OUTPUT_FORMAT.format(**locals()))
+            log.echo(GET_OUTPUT_FORMAT.format(**locals()))
         else:
             for key, value in parser.items(section):
-                click.echo(GET_OUTPUT_FORMAT.format(**locals()))
+                log.echo(GET_OUTPUT_FORMAT.format(**locals()))
     except ConfigParser.NoSectionError:
         raise MissingConfigurationException(section)
     except ConfigParser.NoOptionError:
@@ -145,7 +146,7 @@ def delete(context, section, key):
 
     with _modify_config(context.target_config) as parser:
         if key:
-            click.echo("Removing {}.{}.".format(section, key))
+            log.echo("Removing {}.{}.".format(section, key))
             parser.remove_option(section, key)
         else:
             parser.remove_section(section)

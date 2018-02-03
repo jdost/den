@@ -17,11 +17,13 @@ Config settings::
         # port
 """
 import click
+import logging
 import os
 
 from docker.types import Mount
 from datetime import datetime
 
+from .. import log
 from .. import shell
 from .. import utils
 
@@ -58,8 +60,11 @@ def create_den(context, start, image, name, cmd):
     `docker ps -a` will show the container, but it won't be running).
     """
     use_default = image != None
+    if use_default:
+        log.info("No image provided, using default")
     image = image if image else context.config.get("image", "default", False)
     if not image:
+        log.warn("No default found in configuration files.")
         raise UndefinedImageException()
 
     name = name if name else context.default_name
@@ -73,8 +78,10 @@ def create_den(context, start, image, name, cmd):
 
     # NOTE: tried to do creation using the API but volume mounting didn't work
     cmd = " {}".format(cmd) if cmd else ""
-    with utils.report_success("Creating den environment with {} base".format(
-        image if use_default else "default")):
+    with log.report_success(
+            "Creating den environment `{}` with `{}` base"
+            .format(name, image if use_default else "default"),
+            debug=context.debug):
         shell.run(DOCKER_CREATE_CMD.format(**locals()) + cmd, quiet=shell.ALL)
 
     if start:
@@ -89,7 +96,7 @@ def start_den(context, name):
     """Starts the specified development den
     """
     name = name if name else context.default_name
-    click.echo("Starting `{}` environment...".format(name))
+    log.echo("Starting `{}` environment...".format(name))
     shell.run(DOCKER_START_CMD.format(**locals()), interactive=True,
               suppress=True)
 
@@ -102,7 +109,8 @@ def stop_den(context, name):
     """Stops the specified develoment den
     """
     name = name if name else context.default_name
-    with utils.report_success("Spinning down `{}` environment".format(name)):
+    with log.report_success("Spinning down `{}` environment".format(name),
+                            debug=context.debug):
         shell.run(DOCKER_STOP_CMD.format(**locals()), quiet=shell.ALL)
 
 
@@ -128,8 +136,9 @@ def delete_den(context, all, names):
         names = [context.default_name]
 
     for name in names:
-        with utils.report_success("Removing the `{}` environment".format(name),
-                abort=False):
+        with log.report_success(
+                "Removing the `{}` environment".format(name),
+                debug=context.debug, abort=False):
             shell.run(DOCKER_DELETE_CMD.format(**locals()), quiet=shell.ALL)
 
 
@@ -149,9 +158,14 @@ def list_dens(context, running):
         "filters": {"label": "den"}
     }
     output = [["NAME", "STATUS", "IMAGE"]]
-    for container in context.docker.containers.list(**kwargs):
+    containers = context.docker.containers.list(**kwargs)
+    log.info("Found {} containers.".format(len(containers)))
+
+    for container in containers:
+        log.debug("`{}` has tags `{}`".format(
+            container.name, ",".join(container.image.tags)))
         tag = container.image.tags[0] if len(container.image.tags) \
                 else container.image.short_id
         output.append([container.name, container.status, tag])
 
-    click.echo("\n".join(utils.align_table(output, min_length=8)))
+    log.echo("\n".join(utils.align_table(output, min_length=8)))
