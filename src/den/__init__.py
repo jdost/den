@@ -16,7 +16,6 @@ import log
 import utils
 
 from config import Config
-from click_ext import SmartGroup
 
 CONTEXT_SETTINGS = {
     "help_option_names": ["-h", "--help"],
@@ -50,7 +49,9 @@ class Context(object):
         return os.path.basename(self.cwd)
 
 
-@click.group("den", context_settings=CONTEXT_SETTINGS, cls=SmartGroup)
+from commands.alias import AliasGroup
+
+@click.group("den", context_settings=CONTEXT_SETTINGS, cls=AliasGroup)
 @click.option("-v", "--verbose", count=True, help="Set verbose logging")
 @click.option("-d", "--debug", is_flag=True, default=False)
 @click.pass_obj
@@ -74,6 +75,7 @@ def main():
     """Setup and call of the object"""
     utils.bind_module("den.commands.dens", den)
     utils.bind_module("den.commands.config", den)
+    utils.bind_module("den.commands.alias", den)
     den(obj=Context())
 
 

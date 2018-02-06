@@ -88,7 +88,7 @@ def config_group(context, user):
 @click.argument("section")  # Name of section to get
 @click.argument("key", required=False, default=None)  # Name of the key
 @click.pass_obj
-def get_value(context, section, key):
+def get_value(context, section, key, output_format=GET_OUTPUT_FORMAT):
     """Retrieve the value in a config
 
     Will return all values under SECTION if just SECTION is defined, otherwise
@@ -102,10 +102,10 @@ def get_value(context, section, key):
     try:
         if key:
             value = parser.get(section, key)
-            log.echo(GET_OUTPUT_FORMAT.format(**locals()))
+            log.echo(output_format.format(**locals()))
         else:
             for key, value in parser.items(section):
-                log.echo(GET_OUTPUT_FORMAT.format(**locals()))
+                log.echo(output_format.format(**locals()))
     except ConfigParser.NoSectionError:
         raise MissingConfigurationException(section)
     except ConfigParser.NoOptionError:
