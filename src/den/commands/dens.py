@@ -17,11 +17,6 @@ Config settings::
         # port
 """
 import click
-import logging
-import os
-
-from docker.types import Mount
-from datetime import datetime
 
 from .. import log
 from .. import shell
