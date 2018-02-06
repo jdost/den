@@ -44,7 +44,8 @@ def run(cmd, interactive=False, quiet=0, cwd=None, env=None, wait=True, suppress
     """
     if interactive:  # don't quiet the output streams interactively
         log.debug("Running command `{}` interactively.".format(cmd))
-        quiet=0
+        quiet = 0
+        wait = True
     else:
         log.debug("Running command `{}`.".format(cmd))
 
