@@ -5,6 +5,7 @@ shareable for.  Basically a cop-out in scope definition but also kind of the
 catchall for misc helpers.
 """
 import click
+import functools
 import importlib
 import os
 import os.path
@@ -92,3 +93,39 @@ def cached_property(func):
         return getattr(self, cached_name)
 
     return property(cached_caller)
+
+
+class DockerConnectionException(click.ClickException):
+    def __init__(self, cause):
+        msg = ("{}, ensure that docker is running and that you have "
+            "permissions to talk to it.").format(cause)
+        click.ClickException.__init__(self, msg)
+
+
+def uses_docker(func):
+    """Docker execution decorator
+
+    Wraps the function/command to capture raised errors when trying to
+    communicate using the Docker API in case it times out or has an error,
+    meant to capture possible configuration errors or connection problems
+    and cleanly report it up to the user.
+    """
+    import log
+
+    from requests.exceptions import ConnectionError
+
+    @functools.wraps(func)
+    def capture_function(*args, **kwargs):
+        debug = False
+        if len(args) and hasattr(args[0], "debug"):
+            debug = args[0].debug
+
+        try:
+            func(*args, **kwargs)
+        except ConnectionError:
+            log.error("Docker connection failed.")
+            if debug:
+                raise
+            raise DockerConnectionException("Failed to connect to the daemon")
+
+    return capture_function

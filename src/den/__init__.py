@@ -23,6 +23,7 @@ CONTEXT_SETTINGS = {
 LOCAL_CONFIG_FILE = ".den.ini"
 USER_CONFIG_FILE = (click.get_app_dir("den") + ".ini").replace(utils.HOME, "~")
 CONFIG_FILES = [LOCAL_CONFIG_FILE, USER_CONFIG_FILE]
+__version__ = "0.1"
 
 
 class Context(object):
@@ -49,7 +50,7 @@ class Context(object):
         return os.path.basename(self.cwd)
 
 
-from commands.alias import AliasGroup
+from den.commands.alias import AliasGroup
 
 @click.group("den", context_settings=CONTEXT_SETTINGS, cls=AliasGroup)
 @click.option("-v", "--verbose", count=True, help="Set verbose logging")

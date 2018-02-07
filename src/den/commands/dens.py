@@ -115,6 +115,7 @@ def stop_den(context, name):
               help="Delete all dens")
 @click.argument("names", required=False, nargs=-1, default=None)  # Name for the den
 @click.pass_obj
+@utils.uses_docker
 def delete_den(context, all, names):
     """Deletes the specified development den(s)
 
@@ -142,6 +143,7 @@ def delete_den(context, all, names):
 @click.option("-r", "--running", is_flag=True, default=False,
               help="Only display running dens")
 @click.pass_obj
+@utils.uses_docker
 def list_dens(context, running):
     """List the existing den containers
 
