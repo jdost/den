@@ -4,11 +4,12 @@ Collection of random helper functions that are designed to be simple and
 shareable for.  Basically a cop-out in scope definition but also kind of the
 catchall for misc helpers.
 """
-import click
 import functools
 import importlib
 import os
 import os.path
+
+import click
 
 HOME = os.path.expanduser("~")
 
@@ -43,7 +44,7 @@ def base_dir(*matches):
     the base directory to work out.  Example using `.git` will find the base
     directory of a git repositor.
     """
-    if not len(matches):
+    if not matches:
         matches = [".git"]
 
     directory = os.getcwd()
@@ -87,6 +88,7 @@ def cached_property(func):
     cached_name = "_" + func.__name__
 
     def cached_caller(self):
+        """decorated function"""
         if not hasattr(self, cached_name):
             setattr(self, cached_name, func(self))
 
@@ -95,10 +97,49 @@ def cached_property(func):
     return property(cached_caller)
 
 
+def dict_merge(*srcs, **kwargs):
+    """Merge multiple dictionaries together
+    Takes a set of dictionaries (and addition key value pairs) and merges into
+    a new dictionary.  This attempts to keep the passed in dictionaries
+    immutable (so the values shouldn't change in them).
+
+    If you use the `_deep` keyword, any values that are dictionaries will be
+    merged rather than overwritten.
+    """
+    merged_dict = {}
+    deep = kwargs.get("_deep", False)
+    def deep_merge(key, value):  # the recursive check and call
+        """Recursive merging check
+        This will deep merge dictionary values, otherwise it will overwrite
+        """
+        if isinstance(value, dict):
+            merged_dict[key] = dict_merge(merged_dict.get(key, {}),
+                                          value, _deep=deep)
+        else:
+            merged_dict[key] = value
+
+    if "_deep" in kwargs:  # don't merge the special keyword
+        del kwargs["_deep"]
+
+    for src in list(srcs) + [kwargs]:  # toss kwargs on end
+        if isinstance(src, dict):
+            if deep:  # loop through k-v pairs if deep merging
+                for key, val in src.iteritems():
+                    deep_merge(key, val)
+            else:
+                merged_dict.update(src)
+
+    return merged_dict
+
+
 class DockerConnectionException(click.ClickException):
+    """Exception raised when an exception from docker is called, this is meant
+    to be caught when docker is not running and present a clean error about
+    this.
+    """
     def __init__(self, cause):
         msg = ("{}, ensure that docker is running and that you have "
-            "permissions to talk to it.").format(cause)
+               "permissions to talk to it.").format(cause)
         click.ClickException.__init__(self, msg)
 
 
@@ -110,14 +151,17 @@ def uses_docker(func):
     meant to capture possible configuration errors or connection problems
     and cleanly report it up to the user.
     """
-    import log
+    import den.log as log
 
     from requests.exceptions import ConnectionError
 
     @functools.wraps(func)
     def capture_function(*args, **kwargs):
+        """Decorated wrapper around capturing docker related errors and raising
+        a clean error for output.
+        """
         debug = False
-        if len(args) and hasattr(args[0], "debug"):
+        if args and hasattr(args[0], "debug"):
             debug = args[0].debug
 
         try:

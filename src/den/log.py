@@ -1,10 +1,17 @@
-import click
+"""Log output wrapper
+
+Wraps log output to allow for dictating log levels and provide some helpers for
+pretty printing output to the command line.
+"""
 import contextlib
 import re
 import sys
 
-from colorama import Fore, init
 from functools import partial
+
+import click
+
+from colorama import Fore, init
 
 init()
 
@@ -21,7 +28,7 @@ LEVELS = {
 }
 
 
-def format(msg):
+def _format(msg):
     """Format message using clean substitutions
 
     These use some colorama options to fix emphasis or other markings for a
@@ -42,34 +49,34 @@ def echo(msg, level=OUTPUT, **kwargs):
         return
     if level is not OUTPUT:
         msg = "{} - {}".format(LEVELS[level], msg)
-    click.echo(format(msg), **kwargs)
+    click.echo(_format(msg), **kwargs)
 
 # Shorthand partials to default the level argument
-error = partial(echo, level=ERROR)
-warn = partial(echo, level=WARN)
-info = partial(echo, level=INFO)
-debug = partial(echo, level=DEBUG)
+error = partial(echo, level=ERROR)  # pylint: disable=invalid-name
+warn = partial(echo, level=WARN)  # pylint: disable=invalid-name
+info = partial(echo, level=INFO)  # pylint: disable=invalid-name
+debug = partial(echo, level=DEBUG)  # pylint: disable=invalid-name
 
 
 def set_level(level=OUTPUT):
     """Define the global logging level."""
-    global LEVEL
+    global LEVEL  # pylint: disable=global-statement
     LEVEL = level
 
 
 @contextlib.contextmanager
-def report_success(msg, debug=None, abort=True):
+def report_success(msg, debug=None, abort=True):  # pylint: disable=redefined-outer-name
     """Context wrapper for reporting success of a step
 
     Prints the step text and then a success or failure suffix depending on if
     the context raised an error or not.
     """
-    click.echo(format(msg) + "...", nl=(LEVEL != OUTPUT))
+    click.echo(_format(msg) + "...", nl=(LEVEL != OUTPUT))
     try:
         yield
         if LEVEL == OUTPUT:
             click.echo("done")
-    except:
+    except click.ClickException:
         if LEVEL == OUTPUT:
             click.echo("error")
         if debug or LEVEL == DEBUG:

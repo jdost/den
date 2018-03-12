@@ -1,6 +1,13 @@
+"""Config interaction definition
+
+Defines helpful wrappers around the `ConfigParser` system to obfuscate some of
+the common patterns with interacting with variable system configurations and
+resolution states.
+"""
 import ConfigParser
 import os.path
-import utils
+
+import den.utils as utils
 
 
 class Config(object):
@@ -15,16 +22,16 @@ class Config(object):
         self.parser = ConfigParser.ConfigParser()
         base = None
 
-        for file in files:
-            if not (file.startswith("/") or file.startswith("~")):
+        for f in files:
+            if not (f.startswith("/") or f.startswith("~")):
                 if not base:
-                    base = utils.base_dir(file)
-                file = os.path.join(base, file)
+                    base = utils.base_dir(f)
+                f = os.path.join(base, f)
             else:
-                file = os.path.expanduser(file)
+                f = os.path.expanduser(f)
 
-            if os.path.exists(file):
-                self.parser.read(file)
+            if os.path.exists(f):
+                self.parser.read(f)
 
     def get(self, section, key, default=None):
         """Value lookup with default value

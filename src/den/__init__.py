@@ -9,13 +9,15 @@ Config settings::
     debug=1  # equivalent to the `-d`//`--debug` flag on all calls
     verbosity=N  # equivalent to the number of `-v` flags set on all calls
 """
+import os.path
+
 import click
 import docker
-import os.path
-import log
-import utils
 
-from config import Config
+import den.log as log
+import den.utils as utils
+
+from den.config import Config
 
 CONTEXT_SETTINGS = {
     "help_option_names": ["-h", "--help"],
@@ -25,6 +27,7 @@ USER_CONFIG_FILE = (click.get_app_dir("den") + ".ini").replace(utils.HOME, "~")
 CONFIG_FILES = [LOCAL_CONFIG_FILE, USER_CONFIG_FILE]
 __version__ = "0.1"
 
+from den.commands.alias import AliasGroup  # pylint: disable=wrong-import-position
 
 class Context(object):
     """Cached context collector for commands
@@ -34,23 +37,24 @@ class Context(object):
     definition being distributed among the commands.
     """
     @utils.cached_property
-    def config(self):
+    def config(self):  # pylint: disable=no-self-use
+        """(cached property) Contextual configuration"""
         return Config(*CONFIG_FILES)
 
     @utils.cached_property
-    def cwd(self):
+    def cwd(self):  # pylint: disable=no-self-use
+        """(cached property) Determined root directory"""
         return utils.base_dir(".git", ".den.ini")
 
     @utils.cached_property
-    def docker(self):
+    def docker(self):  # pylint: disable=no-self-use
+        """(cached property) Docker client interface"""
         return docker.from_env()
 
     @utils.cached_property
     def default_name(self):
+        """(cached property) inferred project name"""
         return os.path.basename(self.cwd)
-
-
-from den.commands.alias import AliasGroup
 
 @click.group("den", context_settings=CONTEXT_SETTINGS, cls=AliasGroup)
 @click.option("-v", "--verbose", count=True, help="Set verbose logging")
@@ -58,18 +62,18 @@ from den.commands.alias import AliasGroup
 @click.pass_obj
 def den(context, verbose, debug):
     """Easy development environments aka development dens"""
-    if not verbose:
-        verbose = int(context.config.get("default", "verbosity", "0"))
-    if not debug:
-        debug = context.config.get("default", "debug")
+    verbose = verbose if verbose else \
+            int(context.config.get("default", "verbosity", "0"))
+    debug = debug if debug else context.config.get("default", "debug")
 
     if debug:
         verbose = log.DEBUG
-    elif verbose:
-        pass
 
     log.set_level(verbose)
     context.debug = debug
+
+    if debug:
+        log.debug("Running in debug mode")
 
 
 def main():
@@ -77,7 +81,7 @@ def main():
     utils.bind_module("den.commands.dens", den)
     utils.bind_module("den.commands.config", den)
     utils.bind_module("den.commands.alias", den)
-    den(obj=Context())
+    return den(obj=Context())  # pylint: disable=no-value-for-parameter,unexpected-keyword-arg
 
 
 if __name__ == "__main__":

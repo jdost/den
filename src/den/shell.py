@@ -4,15 +4,14 @@ Provides various ways to interact with the shell, between calling a command to
 finish, calling a command and attaching the current shell to it, capturing the
 output of a command, or just checking if a command lives in the $PATH.
 """
-import distutils.spawn
+import distutils.spawn  # pylint: disable=no-name-in-module,import-error
 import os
 import subprocess
 import sys
-import utils
 
 from click import ClickException
 
-import log
+import den.log as log
 
 STDOUT = 1
 STDERR = 2
@@ -32,7 +31,8 @@ class CommandFailure(ClickException):
         ClickException.__init__(self, msg)
 
 
-def run(cmd, interactive=False, quiet=0, cwd=None, env=None, wait=True, suppress=False):
+def run(cmd, interactive=False, quiet=0, cwd=None, env=None,  # pylint: disable=too-many-arguments
+        wait=True, suppress=False):  # pylint: disable=too-many-arguments
     """Run the command in a subprocess shell
 
     Can be configured how the command is handled with quietting the stderr or
@@ -86,4 +86,4 @@ def is_installed(command):
     command failure (because the executable doesn't exist) instead of a generic
     failure message.
     """
-    return distutils.spawn.find_executable(command)
+    return distutils.spawn.find_executable(command)  # pylint: disable=no-member

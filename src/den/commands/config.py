@@ -4,13 +4,15 @@ These are to allow a CLI system for reading and writing to the config files.
 There are two targets for each action, the default "local" config and the
 "user" config (which lives in the user's home).
 """
-import click
 import ConfigParser
 import contextlib
 import os.path
 
+import click
+
+import den.log as log
+
 from .. import LOCAL_CONFIG_FILE, USER_CONFIG_FILE
-from .. import log
 from ..click_ext import SmartGroup
 
 __commands__ = ["config_group"]
@@ -19,6 +21,9 @@ GET_OUTPUT_FORMAT = "{section}.{key} = {value}"
 
 
 class MissingConfigurationException(click.ClickException):
+    """Exception raised on misses in config lookups, meant to collect error
+    display logic for various failure conditions.
+    """
     def __init__(self, section, key=None):
         msg = "No `{}` section defined.".format(section) if not key \
                 else "No `{}.{}` option defined.".format(section, key)
@@ -54,8 +59,9 @@ def _modify_config(config_file):
     newly modified config file.
     """
     parser = ConfigParser.ConfigParser()
-    with open(config_file, "r") as f:
-        parser.readfp(f)
+    if os.path.exists(config_file):
+        with open(config_file, "r") as f:
+            parser.readfp(f)
 
     yield parser
 
@@ -102,10 +108,11 @@ def get_value(context, section, key, output_format=GET_OUTPUT_FORMAT):
     try:
         if key:
             value = parser.get(section, key)
-            log.echo(output_format.format(**locals()))
+            log.echo(output_format.format(section=section, key=key,
+                                          value=value))
         else:
-            for key, value in parser.items(section):
-                log.echo(output_format.format(**locals()))
+            for k, v in parser.items(section):
+                log.echo(output_format.format(section=section, key=k, value=v))
     except ConfigParser.NoSectionError:
         raise MissingConfigurationException(section)
     except ConfigParser.NoOptionError:

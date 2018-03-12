@@ -14,12 +14,14 @@ equivalent of running `den create --start`.
 Additional commands exist to interact with the aliases, but they are basically
 re-wraps of the `config` group of commands.
 """
-import click
 import os
 
+import click
+
+from .config import get_value, set_value, \
+        MissingConfigurationException
 from .. import LOCAL_CONFIG_FILE, USER_CONFIG_FILE
 from ..click_ext import SmartGroup
-from config import set_value, get_value, MissingConfigurationException
 
 ALIAS_SECTION = "alias"
 __commands__ = ["interact_alias"]
@@ -46,20 +48,21 @@ class AliasGroup(SmartGroup):
     command does not normally resolve.  This means that if an alias is defined
     that overlaps with an existing command, it will never be run.
     """
-    def resolve_command(self, context, args):
+    def resolve_command(self, ctx, args):
         try:
-            return click.Group.resolve_command(self, context, args)
+            return click.Group.resolve_command(self, ctx, args)
         except click.ClickException:
-            alias = find(context.obj, args[0])
+            alias = find(ctx.obj, args[0])
             if not alias:
                 raise
-            return click.Group.resolve_command(self, context, alias + args[1:])
+            return click.Group.resolve_command(self, ctx, alias + args[1:])
             # the `alias + args[1:]` allows for the expanded alias to append
             # the extra arguments to itself, treating it like an inline
             # expansion
 
 
 class NoAliasException(click.ClickException):
+    """Exception raised when an alias lookup fails. """
     def __init__(self, alias):
         click.ClickException.__init__(self, "No `{}` alias "
                                       "defined.".format(alias))
@@ -67,7 +70,7 @@ class NoAliasException(click.ClickException):
 
 # > den alias <alias> [<command>]
 @click.command("alias",
-             short_help="Create or modify command aliases")
+               short_help="Create or modify command aliases")
 @click.option("-u", "--user", is_flag=True, default=False,
               help="Use the user level configuration.")
 @click.argument("alias")  # alias to act on

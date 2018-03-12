@@ -24,7 +24,8 @@ from .. import utils
 
 
 DOCKER_CREATE_CMD = ("docker create --hostname {name} --interactive "
-    "--label den --name {name} --tty --volume {cwd}:/src {image}")
+                     "--label den --name {name} {ports}--tty --volume "
+                     "{cwd}:/src {image}")
 DOCKER_START_CMD = "docker start --attach --interactive {name}"
 DOCKER_STOP_CMD = "docker stop --time 1 {name}"
 DOCKER_DELETE_CMD = "docker rm --force {name}"
@@ -34,6 +35,10 @@ __commands__ = ["create_den", "start_den", "stop_den", "delete_den",
 
 
 class UndefinedImageException(click.ClickException):
+    """Exception raised when no image can be inferred.
+    Images are defined either via a CLI argument or via the configuration
+    files.
+    """
     def __init__(self):
         click.ClickException.__init__(
             self, "There is no defined image to build off of.")
@@ -62,22 +67,26 @@ def create_den(context, start, image, name, cmd):
         log.warn("No default found in configuration files.")
         raise UndefinedImageException()
 
-    name = name if name else context.default_name
+    name = name if name else context.config.get("image", "name", context.default_name)
     cmd = cmd if cmd else context.config.get("image", "command")
     cwd = (context.cwd + "/") if not context.cwd.endswith("/") else context.cwd
 
+    if isinstance(cmd, tuple):
+        cmd = " ".join(cmd)
+
     ports = []
     for guest, host in context.config.get_section("ports").iteritems():
-        ports.append("{}:{}".format(guest, host) if host else str(guest))
-    ports = ",".join(ports)
+        ports.append("--publish {}:{}".format(guest, host) if host else str(guest))
+    ports = " ".join(ports) + " " if ports else ""
 
     # NOTE: tried to do creation using the API but volume mounting didn't work
     cmd = " {}".format(cmd) if cmd else ""
     with log.report_success(
-            "Creating den environment `{}` with `{}` base"
-            .format(name, image if use_default else "default"),
-            debug=context.debug):
-        shell.run(DOCKER_CREATE_CMD.format(**locals()) + cmd, quiet=shell.ALL)
+        "Creating den environment `{}` with `{}` base"
+        .format(name, image if not use_default else "default"),
+        debug=context.debug):
+        shell.run(DOCKER_CREATE_CMD.format(name=name, ports=ports, cwd=cwd,
+                                           image=image) + cmd, quiet=shell.ALL)
 
     if start:
         start_den.callback(name)
@@ -116,7 +125,7 @@ def stop_den(context, name):
 @click.argument("names", required=False, nargs=-1, default=None)  # Name for the den
 @click.pass_obj
 @utils.uses_docker
-def delete_den(context, all, names):
+def delete_den(context, all, names):  # pylint: disable=redefined-builtin
     """Deletes the specified development den(s)
 
     Will attempt to delete the specified dens.
@@ -125,7 +134,7 @@ def delete_den(context, all, names):
         den_filter = {"all": True, "filters": {"label": "den"}}
         names = [container.name for container
                  in context.docker.containers.list(**den_filter)]
-        if len(names):
+        if names:
             click.confirm("This will delete the containers: "
                           "{}".format(", ".join(names)), abort=True)
     elif not names:
@@ -133,8 +142,8 @@ def delete_den(context, all, names):
 
     for name in names:
         with log.report_success(
-                "Removing the `{}` environment".format(name),
-                debug=context.debug, abort=False):
+            "Removing the `{}` environment".format(name),
+            debug=context.debug, abort=False):
             shell.run(DOCKER_DELETE_CMD.format(**locals()), quiet=shell.ALL)
 
 
@@ -161,7 +170,7 @@ def list_dens(context, running):
     for container in containers:
         log.debug("`{}` has tags `{}`".format(
             container.name, ",".join(container.image.tags)))
-        tag = container.image.tags[0] if len(container.image.tags) \
+        tag = container.image.tags[0] if container.image.tags \
                 else container.image.short_id
         output.append([container.name, container.status, tag])
 
