@@ -4,7 +4,10 @@ These are to allow a CLI system for reading and writing to the config files.
 There are two targets for each action, the default "local" config and the
 "user" config (which lives in the user's home).
 """
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 import contextlib
 import os.path
 

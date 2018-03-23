@@ -16,7 +16,11 @@ import den.log as log
 STDOUT = 1
 STDERR = 2
 ALL = STDOUT | STDERR
-DEVNULL = os.open(os.devnull, os.O_RDWR)  # Taken from the 3.x codebase
+
+if hasattr(subprocess, "DEVNULL"):
+    DEVNULL = getattr(subprocess, "DEVNULL")
+else:
+    DEVNULL = os.open(os.devnull, os.O_RDWR)  # Taken from the 3.x codebase
 
 
 class CommandFailure(ClickException):

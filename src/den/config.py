@@ -4,7 +4,10 @@ Defines helpful wrappers around the `ConfigParser` system to obfuscate some of
 the common patterns with interacting with variable system configurations and
 resolution states.
 """
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 import os.path
 
 import den.utils as utils

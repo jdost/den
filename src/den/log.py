@@ -15,16 +15,20 @@ from colorama import Fore, init
 
 init()
 
+def _clrd(color, msg):
+    """Generated a clean foreground colored message"""
+    return getattr(Fore, color) + msg + Fore.RESET
+
 SUBSTITUTIONS = [
     (re.compile(r"\`([^\`]*)\`"), Fore.CYAN + r"\1" + Fore.RESET),
 ]
 OUTPUT, ERROR, WARN, INFO, DEBUG = range(5)
 LEVEL = OUTPUT
 LEVELS = {
-    ERROR: Fore.RED + "ERROR" + Fore.RESET,
-    WARN: Fore.YELLOW + "WARN" + Fore.RESET,
-    INFO: Fore.GREEN + "INFO" + Fore.RESET,
-    DEBUG: Fore.WHITE + "DEBUG" + Fore.RESET,
+    ERROR: _clrd("RED", "ERROR"),
+    WARN: _clrd("YELLOW", "WARN"),
+    INFO: _clrd("GREEN", "INFO"),
+    DEBUG: _clrd("WHITE", "DEBUG"),
 }
 
 
@@ -75,10 +79,10 @@ def report_success(msg, debug=None, abort=True):  # pylint: disable=redefined-ou
     try:
         yield
         if LEVEL == OUTPUT:
-            click.echo("done")
+            click.echo(_clrd("GREEN", "done"))
     except click.ClickException:
         if LEVEL == OUTPUT:
-            click.echo("error")
+            click.echo(_clrd("RED", "error"))
         if debug or LEVEL == DEBUG:
             raise
         if abort:
