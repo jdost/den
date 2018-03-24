@@ -64,7 +64,10 @@ def _modify_config(config_file):
     parser = ConfigParser.ConfigParser()
     if os.path.exists(config_file):
         with open(config_file, "r") as f:
-            parser.readfp(f)
+            if hasattr(parser, "read_file"):
+                getattr(parser, "read_file")(f)
+            else:
+                getattr(parser, "readfp")(f)
 
     yield parser
 

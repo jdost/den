@@ -59,7 +59,7 @@ def create_den(context, start, image, name, cmd):
     definition.  By default it is not started (just created, so a
     `docker ps -a` will show the container, but it won't be running).
     """
-    use_default = image == None
+    use_default = image is None
     if use_default:
         log.info("No image provided, using default")
     image = image if image else context.config.get("image", "default", False)
@@ -75,7 +75,7 @@ def create_den(context, start, image, name, cmd):
         cmd = " ".join(cmd)
 
     ports = []
-    for guest, host in context.config.get_section("ports").iteritems():
+    for guest, host in context.config.get_section("ports").items():
         ports.append("--publish {}:{}".format(guest, host) if host else str(guest))
     ports = " ".join(ports) + " " if ports else ""
 

@@ -2,7 +2,10 @@ import den.test
 import os
 import tempfile
 
-from ConfigParser import ConfigParser
+try:
+    from ConfigParser import ConfigParser
+except ImportError:
+    from configparser import ConfigParser
 from den.commands import config
 
 

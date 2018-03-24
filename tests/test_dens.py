@@ -89,11 +89,13 @@ class DenCreateTest(DensTest):
         If a port forwarding map is defined in the configuration, the created
         container should honor this port map in the creation.
         """
+        ports = {"9000": "9001", "80": "8080"}
+        ports = ["{}:{}".format(k, v) for k, v in ports.items()]
         self.invoke.create_den()
         self.assertExecuted("docker create --hostname {0} --interactive "
-                "--label den --name {0} --publish 80:8080 --publish 9000:9001 "
+                "--label den --name {0} --publish {1[0]} --publish {1[1]} "
                 "--tty --volume /test/:/src foo"\
-                    .format(self.context.default_name))
+                    .format(self.context.default_name, ports))
 
     @den.test.with_config(_blank=True)
     def test_unconfigured(self):

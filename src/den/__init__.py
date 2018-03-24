@@ -78,6 +78,7 @@ def den(context, verbose, debug):
 
 @den.command("version", short_help="Return the version of the installed den")
 def version():
+    """Subcommand for giving the version number."""
     log.echo("Den version {}".format(__version__))
 
 

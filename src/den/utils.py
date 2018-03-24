@@ -124,7 +124,7 @@ def dict_merge(*srcs, **kwargs):
     for src in list(srcs) + [kwargs]:  # toss kwargs on end
         if isinstance(src, dict):
             if deep:  # loop through k-v pairs if deep merging
-                for key, val in src.iteritems():
+                for key, val in src.items():
                     deep_merge(key, val)
             else:
                 merged_dict.update(src)
@@ -153,7 +153,7 @@ def uses_docker(func):
     """
     import den.log as log
 
-    from requests.exceptions import ConnectionError
+    from requests.exceptions import ConnectionError as RequestsConnectionError
 
     @functools.wraps(func)
     def capture_function(*args, **kwargs):
@@ -166,7 +166,7 @@ def uses_docker(func):
 
         try:
             func(*args, **kwargs)
-        except ConnectionError:
+        except RequestsConnectionError:
             log.error("Docker connection failed.")
             if debug:
                 raise

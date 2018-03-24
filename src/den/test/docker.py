@@ -9,7 +9,7 @@ def define_handler(name):
 
 class DictObject(object):
     def __init__(self, **props):
-        for k, v in props.iteritems():
+        for k, v in props.items():
             if isinstance(v, dict):
                 setattr(self, k, DictObject(**v))
             else:
