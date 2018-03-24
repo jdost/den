@@ -59,7 +59,7 @@ def create_den(context, start, image, name, cmd):
     definition.  By default it is not started (just created, so a
     `docker ps -a` will show the container, but it won't be running).
     """
-    use_default = image != None
+    use_default = image == None
     if use_default:
         log.info("No image provided, using default")
     image = image if image else context.config.get("image", "default", False)
@@ -107,15 +107,24 @@ def start_den(context, name):
 
 # > den stop [<name>]
 @click.command("stop", short_help="Stop a running den")
+@click.option("-d", "--delete", is_flag=True, default=False,
+              help="Delete the den after stopping it")
 @click.argument("name", required=False, default=None)  # Name for the den
 @click.pass_obj
-def stop_den(context, name):
+def stop_den(context, delete, name=None):
     """Stops the specified develoment den
     """
+    if not isinstance(delete, bool):
+        name = delete
+        delete = False
+
     name = name if name else context.default_name
     with log.report_success("Spinning down `{}` environment".format(name),
                             debug=context.debug):
         shell.run(DOCKER_STOP_CMD.format(**locals()), quiet=shell.ALL)
+
+    if delete:
+        delete_den.callback([name])
 
 
 # > den delete [<name>]
