@@ -76,6 +76,11 @@ def den(context, verbose, debug):
         log.debug("Running in debug mode")
 
 
+@den.command("version", short_help="Return the version of the installed den")
+def version():
+    log.echo("Den version {}".format(__version__))
+
+
 def main():
     """Setup and call of the object"""
     utils.bind_module("den.commands.dens", den)
