@@ -25,7 +25,7 @@ from .. import utils
 
 DOCKER_CREATE_CMD = ("docker create --hostname {name} --interactive "
                      "--label den --name {name} {ports}--tty --volume "
-                     "{cwd}:/src {image}")
+                     "{cwd}:/src{extra_args} {image}")
 DOCKER_START_CMD = "docker start --attach --interactive {name}"
 DOCKER_STOP_CMD = "docker stop --time 1 {name}"
 DOCKER_DELETE_CMD = "docker rm --force {name}"
@@ -49,10 +49,12 @@ class UndefinedImageException(click.ClickException):
 @click.option("-s", "--start", is_flag=True, default=False,
               help="Start the den upon creation")
 @click.option("-i", "--image", default=None, help="Image to build off of")
+@click.option("--with-docker", is_flag=True, default=False,
+              help="Mount docker daemon within container")
 @click.argument("name", required=False, default=None)  # Name for the den
 @click.argument("cmd", nargs=-1)  # Command to run in container
 @click.pass_obj
-def create_den(context, start, image, name, cmd):
+def create_den(context, start, image, with_docker, name, cmd):
     """Creates the development den
 
     This is a reusable container created based on the argument and configured
@@ -70,9 +72,14 @@ def create_den(context, start, image, name, cmd):
     name = name if name else context.config.get("image", "name", context.default_name)
     cmd = cmd if cmd else context.config.get("image", "command")
     cwd = (context.cwd + "/") if not context.cwd.endswith("/") else context.cwd
+    extra_args = [""]
 
     if isinstance(cmd, tuple):
         cmd = " ".join(cmd)
+
+    if with_docker:
+        extra_args.append("--volume")
+        extra_args.append("/var/run/docker.sock:/var/run/docker.sock")
 
     ports = []
     for guest, host in context.config.get_section("ports").items():
@@ -85,8 +92,9 @@ def create_den(context, start, image, name, cmd):
         "Creating den environment `{}` with `{}` base"
         .format(name, image if not use_default else "default"),
         debug=context.debug):
-        shell.run(DOCKER_CREATE_CMD.format(name=name, ports=ports, cwd=cwd,
-                                           image=image) + cmd, quiet=shell.ALL)
+        shell.run(DOCKER_CREATE_CMD.format(
+                name=name, ports=ports, cwd=cwd, image=image,
+                extra_args=" ".join(extra_args)) + cmd, quiet=shell.ALL)
 
     if start:
         start_den.callback(name)
