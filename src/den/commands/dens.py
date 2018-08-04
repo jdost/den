@@ -54,7 +54,7 @@ class UndefinedImageException(click.ClickException):
 @click.argument("name", required=False, default=None)  # Name for the den
 @click.argument("cmd", nargs=-1)  # Command to run in container
 @click.pass_obj
-def create_den(context, start, image, with_docker, name, cmd):
+def create_den(context, start, image, with_docker, name, cmd):  # pylint: disable=too-many-arguments
     """Creates the development den
 
     This is a reusable container created based on the argument and configured
@@ -93,8 +93,8 @@ def create_den(context, start, image, with_docker, name, cmd):
         .format(name, image if not use_default else "default"),
         debug=context.debug):
         shell.run(DOCKER_CREATE_CMD.format(
-                name=name, ports=ports, cwd=cwd, image=image,
-                extra_args=" ".join(extra_args)) + cmd, quiet=shell.ALL)
+            name=name, ports=ports, cwd=cwd, image=image,
+            extra_args=" ".join(extra_args)) + cmd, quiet=shell.ALL)
 
     if start:
         start_den.callback(name)

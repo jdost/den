@@ -26,6 +26,7 @@ class DensTest(den.test.TestCase):
 
         self.shell.reset_mock()
 
+
 class DenCreateTest(DensTest):
     config = {"image": {"default": "foo"}}
     def test_implied(self):
