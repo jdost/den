@@ -99,8 +99,8 @@ class DenCreateTest(DensTest):
         ports = ["{}:{}".format(k, v) for k, v in ports.items()]
         self.invoke.create_den()
         self.assertExecuted("docker create --hostname {0} --interactive "
-                            "--label den --name {0} --publish {1[0]} "
-                            "--publish {1[1]} --tty --volume /test/:/src foo"
+                            "--label den --name {0} --tty --volume "
+                            "/test/:/src --publish {1[0]} --publish {1[1]} foo"
                             .format(self.context.default_name, ports))
 
     def test_docker(self):
@@ -131,6 +131,19 @@ class DenCreateTest(DensTest):
                             "/test/:/src --volume /tmp/auth.sock:"
                             "/var/run/ssh_agent.sock --env "
                             "SSH_AUTH_SOCK=/var/run/ssh_agent.sock "
+                            "foo /bin/echo")
+
+    def test_device(self):
+        """ Configured to forward a system device to container
+        If the container is meant to have access to a host's device via
+        a command line flag, then the device should be designated in the
+        creation command.
+        """
+        self.invoke.create_den("--device /dev/snd test /bin/echo")
+
+        self.assertExecuted("docker create --hostname test --interactive "
+                            "--label den --name test --tty --volume "
+                            "/test/:/src --device /dev/snd "
                             "foo /bin/echo")
 
     @den.test.with_config(_blank=True)

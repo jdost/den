@@ -28,11 +28,12 @@ from .. import utils
 
 
 DOCKER_CREATE_CMD = ("docker create --hostname {name} --interactive "
-                     "--label den --name {name} {ports}--tty --volume "
+                     "--label den --name {name} --tty --volume "
                      "{cwd}:/src{extra_args} {image}")
 DOCKER_START_CMD = "docker start --attach --interactive {name}"
 DOCKER_STOP_CMD = "docker stop --time 1 {name}"
 DOCKER_DELETE_CMD = "docker rm --force {name}"
+HOME = expanduser("~")
 
 __commands__ = ["create_den", "start_den", "stop_den", "delete_den",
                 "list_dens"]
@@ -52,7 +53,10 @@ class UndefinedImageException(click.ClickException):
 @click.command("create", short_help="Create a new den")
 @click.option("-s", "--start", is_flag=True, default=False,
               help="Start the den upon creation")
-@click.option("-i", "--image", default=None, help="Image to build off of")
+@click.option("-i", "--image", default=None, metavar="DOCKER_IMAGE",
+              help="Image to build off of")
+@click.option("--device", default=None, metavar="/dev/DEVICE",
+              help="Devices to pass to container")
 @click.option("--with-docker", is_flag=True, default=False,
               help="Mount docker daemon within container")
 @click.option("--with-ssh", is_flag=True, default=False,
@@ -61,7 +65,7 @@ class UndefinedImageException(click.ClickException):
 @click.argument("cmd", nargs=-1)  # Command to run in container
 @click.pass_obj
 def create_den(context, start, image,  # pylint: disable=too-many-arguments
-               with_docker, with_ssh, name, cmd):
+               with_docker, with_ssh, name, cmd, device):
     """Creates the development den
 
     This is a reusable container created based on the argument and configured
@@ -80,32 +84,31 @@ def create_den(context, start, image,  # pylint: disable=too-many-arguments
         "image", "name", context.default_name)
     cmd = cmd if cmd else context.config.get("image", "command")
     cwd = (context.cwd + "/") if not context.cwd.endswith("/") else context.cwd
-    home = expanduser("~")
     extra_args = [""]
 
-    if isinstance(cmd, tuple):
+    if isinstance(cmd, (tuple, list)):
         cmd = " ".join(cmd)
 
     if with_docker:
-        extra_args.append("--volume")
-        extra_args.append("/var/run/docker.sock:/var/run/docker.sock")
-        extra_args.append("--volume")
-        extra_args.append(home + "/.docker:/root/.docker")
+        extra_args.append("--volume "
+                          "/var/run/docker.sock:/var/run/docker.sock")
+        extra_args.append("--volume " +
+                          HOME + "/.docker:/root/.docker")
     if with_ssh:
         ssh_agent = os.environ.get("SSH_AUTH_SOCK", None)
         if not ssh_agent:
             log.warn("No ssh agent to mount, skipping")
         else:
-            extra_args.append("--volume")
-            extra_args.append(ssh_agent + ":/var/run/ssh_agent.sock")
-            extra_args.append("--env")
-            extra_args.append("SSH_AUTH_SOCK=/var/run/ssh_agent.sock")
+            extra_args.append("--volume " +
+                              ssh_agent + ":/var/run/ssh_agent.sock")
+            extra_args.append("--env "
+                              "SSH_AUTH_SOCK=/var/run/ssh_agent.sock")
+    if device:
+        extra_args.append("--device " + device)
 
-    ports = []
     for guest, host in context.config.get_section("ports").items():
-        ports.append(
+        extra_args.append(
             "--publish {}:{}".format(guest, host) if host else str(guest))
-    ports = " ".join(ports) + " " if ports else ""
 
     # NOTE: tried to do creation using the API but volume mounting didn't work
     cmd = " {}".format(cmd) if cmd else ""
@@ -115,7 +118,7 @@ def create_den(context, start, image,  # pylint: disable=too-many-arguments
         debug=context.debug
     ):
         shell.run(DOCKER_CREATE_CMD.format(
-            name=name, ports=ports, cwd=cwd, image=image,
+            name=name, cwd=cwd, image=image,
             extra_args=" ".join(extra_args)) + cmd, quiet=shell.ALL)
 
     if start:
