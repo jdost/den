@@ -16,6 +16,10 @@ Config settings::
         # on the host system, if no host port is specified, it will be the same
         # port
 """
+import os
+
+from os.path import expanduser
+
 import click
 
 from .. import log
@@ -51,10 +55,13 @@ class UndefinedImageException(click.ClickException):
 @click.option("-i", "--image", default=None, help="Image to build off of")
 @click.option("--with-docker", is_flag=True, default=False,
               help="Mount docker daemon within container")
+@click.option("--with-ssh", is_flag=True, default=False,
+              help="Mount ssh agent within container")
 @click.argument("name", required=False, default=None)  # Name for the den
 @click.argument("cmd", nargs=-1)  # Command to run in container
 @click.pass_obj
-def create_den(context, start, image, with_docker, name, cmd):  # pylint: disable=too-many-arguments
+def create_den(context, start, image,  # pylint: disable=too-many-arguments
+               with_docker, with_ssh, name, cmd):
     """Creates the development den
 
     This is a reusable container created based on the argument and configured
@@ -69,9 +76,11 @@ def create_den(context, start, image, with_docker, name, cmd):  # pylint: disabl
         log.warn("No default found in configuration files.")
         raise UndefinedImageException()
 
-    name = name if name else context.config.get("image", "name", context.default_name)
+    name = name if name else context.config.get(
+        "image", "name", context.default_name)
     cmd = cmd if cmd else context.config.get("image", "command")
     cwd = (context.cwd + "/") if not context.cwd.endswith("/") else context.cwd
+    home = expanduser("~")
     extra_args = [""]
 
     if isinstance(cmd, tuple):
@@ -80,10 +89,22 @@ def create_den(context, start, image, with_docker, name, cmd):  # pylint: disabl
     if with_docker:
         extra_args.append("--volume")
         extra_args.append("/var/run/docker.sock:/var/run/docker.sock")
+        extra_args.append("--volume")
+        extra_args.append(home + "/.docker:/root/.docker")
+    if with_ssh:
+        ssh_agent = os.environ.get("SSH_AUTH_SOCK", None)
+        if not ssh_agent:
+            log.warn("No ssh agent to mount, skipping")
+        else:
+            extra_args.append("--volume")
+            extra_args.append(ssh_agent + ":/var/run/ssh_agent.sock")
+            extra_args.append("--env")
+            extra_args.append("SSH_AUTH_SOCK=/var/run/ssh_agent.sock")
 
     ports = []
     for guest, host in context.config.get_section("ports").items():
-        ports.append("--publish {}:{}".format(guest, host) if host else str(guest))
+        ports.append(
+            "--publish {}:{}".format(guest, host) if host else str(guest))
     ports = " ".join(ports) + " " if ports else ""
 
     # NOTE: tried to do creation using the API but volume mounting didn't work
@@ -91,7 +112,8 @@ def create_den(context, start, image, with_docker, name, cmd):  # pylint: disabl
     with log.report_success(
         "Creating den environment `{}` with `{}` base"
         .format(name, image if not use_default else "default"),
-        debug=context.debug):
+        debug=context.debug
+    ):
         shell.run(DOCKER_CREATE_CMD.format(
             name=name, ports=ports, cwd=cwd, image=image,
             extra_args=" ".join(extra_args)) + cmd, quiet=shell.ALL)
@@ -139,7 +161,8 @@ def stop_den(context, delete, name=None):
 @click.command("delete", short_help="Delete an existing den")
 @click.option("-a", "--all", is_flag=True, default=False,
               help="Delete all dens")
-@click.argument("names", required=False, nargs=-1, default=None)  # Name for the den
+@click.argument("names", required=False, nargs=-1,
+                default=None)  # Name for the den
 @click.pass_obj
 @utils.uses_docker
 def delete_den(context, all, names):  # pylint: disable=redefined-builtin
@@ -160,7 +183,8 @@ def delete_den(context, all, names):  # pylint: disable=redefined-builtin
     for name in names:
         with log.report_success(
             "Removing the `{}` environment".format(name),
-            debug=context.debug, abort=False):
+            debug=context.debug, abort=False
+        ):
             shell.run(DOCKER_DELETE_CMD.format(**locals()), quiet=shell.ALL)
 
 
@@ -188,7 +212,7 @@ def list_dens(context, running):
         log.debug("`{}` has tags `{}`".format(
             container.name, ",".join(container.image.tags)))
         tag = container.image.tags[0] if container.image.tags \
-                else container.image.short_id
+            else container.image.short_id
         output.append([container.name, container.status, tag])
 
     log.echo("\n".join(utils.align_table(output, min_length=8)))

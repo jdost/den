@@ -1,3 +1,5 @@
+import os
+
 import den.test
 
 from den.commands import dens
@@ -29,6 +31,7 @@ class DensTest(den.test.TestCase):
 
 class DenCreateTest(DensTest):
     config = {"image": {"default": "foo"}}
+
     def test_implied(self):
         """ `den create`
         Use implied defaults, this requires a default image be defined via the
@@ -36,8 +39,9 @@ class DenCreateTest(DensTest):
         """
         self.invoke.create_den()
         self.assertExecuted("docker create --hostname {0} --interactive "
-                "--label den --name {0} --tty --volume /test/:/src foo"\
-                .format(self.context.default_name))
+                            "--label den --name {0} --tty --volume "
+                            "/test/:/src foo"
+                            .format(self.context.default_name))
 
     def test_name(self):
         """ `den create <name>`
@@ -47,42 +51,43 @@ class DenCreateTest(DensTest):
         """
         self.invoke.create_den("override")
         self.assertExecuted("docker create --hostname override --interactive "
-                "--label den --name override --tty --volume /test/:/src foo")
+                            "--label den --name override --tty --volume "
+                            "/test/:/src foo")
 
         with self.with_config(image={"name": "configured"}):
             self.invoke.create_den()
             self.assertExecuted("docker create --hostname configured "
-                    "--interactive --label den --name configured --tty "
-                    "--volume /test/:/src foo")
+                                "--interactive --label den --name "
+                                "configured --tty --volume /test/:/src foo")
 
         with self.with_config(image={"name": "configured"}):
             self.invoke.create_den("override")
             self.assertExecuted("docker create --hostname override "
-                    "--interactive --label den --name override --tty "
-                    "--volume /test/:/src foo")
+                                "--interactive --label den --name "
+                                "override --tty --volume /test/:/src foo")
 
     def test_command(self):
         """ `den create foo <command>`
         Override the executing command either via a CLI argument or a
-        configuration value.  NOTE: the `test` is required, names have precedent
-        over commands.
+        configuration value.  NOTE: the `test` is required, names have
+        precedent over commands.
         """
         self.invoke.create_den("test /bin/echo")
         self.assertExecuted("docker create --hostname test --interactive "
-                "--label den --name test --tty --volume /test/:/src foo "
-                "/bin/echo")
+                            "--label den --name test --tty --volume "
+                            "/test/:/src foo /bin/echo")
 
         with self.with_config(image={"command": "/bin/foo"}):
             self.invoke.create_den("test", ctch=False)
             self.assertExecuted("docker create --hostname test --interactive "
-                    "--label den --name test --tty --volume /test/:/src foo "
-                    "/bin/foo")
+                                "--label den --name test --tty --volume "
+                                "/test/:/src foo /bin/foo")
 
         with self.with_config(image={"command": "/bin/foo"}):
             self.invoke.create_den("test /bin/echo")
             self.assertExecuted("docker create --hostname test --interactive "
-                    "--label den --name test --tty --volume /test/:/src foo "
-                    "/bin/echo")
+                                "--label den --name test --tty --volume "
+                                "/test/:/src foo /bin/echo")
 
     @den.test.with_config(ports={"9000": "9001", "80": "8080"})
     def test_ports(self):
@@ -94,9 +99,39 @@ class DenCreateTest(DensTest):
         ports = ["{}:{}".format(k, v) for k, v in ports.items()]
         self.invoke.create_den()
         self.assertExecuted("docker create --hostname {0} --interactive "
-                "--label den --name {0} --publish {1[0]} --publish {1[1]} "
-                "--tty --volume /test/:/src foo"\
-                    .format(self.context.default_name, ports))
+                            "--label den --name {0} --publish {1[0]} "
+                            "--publish {1[1]} --tty --volume /test/:/src foo"
+                            .format(self.context.default_name, ports))
+
+    def test_docker(self):
+        """ Configured to mount host docker inside
+        If the host docker is meant to be run from within the created
+        container, the daemon socket and credentials directories should
+        be volume mounted.
+        """
+        self.invoke.create_den("--with-docker test /bin/echo")
+        self.assertExecuted("docker create --hostname test --interactive "
+                            "--label den --name test --tty --volume "
+                            "/test/:/src --volume /var/run/docker.sock:"
+                            "/var/run/docker.sock --volume {}/.docker:"
+                            "/root/.docker foo /bin/echo"
+                            .format(os.environ["HOME"]))
+
+    @patch.dict(os.environ, {"SSH_AUTH_SOCK": "/tmp/auth.sock"})
+    def test_ssh(self):
+        """ Configured to mount host ssh-agent
+        If the container is meant to have access to the host's ssh-agent
+        for whatever reason (like ssh auth with github) the host agent
+        socket should be mounted and the environment variable set.
+        """
+        self.invoke.create_den("--with-ssh test /bin/echo")
+
+        self.assertExecuted("docker create --hostname test --interactive "
+                            "--label den --name test --tty --volume "
+                            "/test/:/src --volume /tmp/auth.sock:"
+                            "/var/run/ssh_agent.sock --env "
+                            "SSH_AUTH_SOCK=/var/run/ssh_agent.sock "
+                            "foo /bin/echo")
 
     @den.test.with_config(_blank=True)
     def test_unconfigured(self):
@@ -112,9 +147,11 @@ class DenCreateTest(DensTest):
         """
         self.invoke.create_den("--start")
         self.assertExecuted("docker create --hostname {0} --interactive "
-                "--label den --name {0} --tty --volume /test/:/src foo"\
-                .format(self.context.default_name), "docker start --attach "
-                "--interactive {}".format(self.context.default_name))
+                            "--label den --name {0} --tty --volume "
+                            "/test/:/src foo"
+                            .format(self.context.default_name),
+                            "docker start --attach --interactive {}"
+                            .format(self.context.default_name))
 
 
 class DenStartTest(DensTest):
@@ -124,8 +161,9 @@ class DenStartTest(DensTest):
         both an explicit declaration of the target den and the implied target.
         """
         self.invoke.start_den()  # implicitly start "test"
-        self.assertExecuted("docker start --attach --interactive {}"\
-                .format(self.context.default_name))  # the default_name is "test"
+        self.assertExecuted("docker start --attach --interactive {}"
+                            .format(self.context.default_name))
+        # the default_name is "test"
 
         self.invoke.start_den("explicit")  # explicitly start "foo"
         self.assertExecuted("docker start --attach --interactive explicit")
@@ -138,8 +176,8 @@ class DenStopTest(DensTest):
         argument.
         """
         self.invoke.stop_den()
-        self.assertExecuted("docker stop --time 1 {}"\
-                .format(self.context.default_name))
+        self.assertExecuted("docker stop --time 1 {}"
+                            .format(self.context.default_name))
 
         self.invoke.stop_den("explicit")
         self.assertExecuted("docker stop --time 1 explicit")
@@ -158,8 +196,8 @@ class DenDeleteTest(DensTest):
         CLI argument.
         """
         self.invoke.delete_den()
-        self.assertExecuted("docker rm --force {}"\
-                .format(self.context.default_name))
+        self.assertExecuted("docker rm --force {}"
+                            .format(self.context.default_name))
 
         self.invoke.delete_den("explicit")
 
@@ -180,10 +218,12 @@ class DenListTest(DensTest):
     docker = {
         "containers": {
             "list": [
-                {"name": "foo", "status": "running",
-                  "image": {"tags": ["image_foo"]}},
-                {"name": "bar", "status": "ready",
-                 "image": {"tags": [], "short_id": "image_bar"}}
+                {
+                    "name": "foo", "status": "running",
+                    "image": {"tags": ["image_foo"]}},
+                {
+                    "name": "bar", "status": "ready",
+                    "image": {"tags": [], "short_id": "image_bar"}}
             ]
         }
     }
@@ -193,9 +233,10 @@ class DenListTest(DensTest):
         Outputs a cleaned up listing of all den containers.
         """
         result = self.invoke.list_dens()
-        self.assertOutput(result.output,
-            "\n".join(list(align_table([
-                ["NAME", "STATUS", "IMAGE"],
-                ["foo", "running", "image_foo"],
-                ["bar", "ready", "image_bar"]
-            ], min_length=8))))
+        self.assertOutput(
+                result.output,
+                "\n".join(list(align_table([
+                    ["NAME", "STATUS", "IMAGE"],
+                    ["foo", "running", "image_foo"],
+                    ["bar", "ready", "image_bar"]
+                ], min_length=8))))
