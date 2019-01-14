@@ -16,16 +16,17 @@ Config settings::
         # on the host system, if no host port is specified, it will be the same
         # port
 """
+import logging
 import os
 
 from os.path import expanduser
 
 import click
 
-from .. import log
 from .. import shell
 from .. import utils
 
+log = logging.getLogger(__name__)
 
 DOCKER_CREATE_CMD = ("docker create --hostname {name} --interactive "
                      "--label den --name {name} --tty --volume "
@@ -209,11 +210,11 @@ def list_dens(context, running):
     }
     output = [["NAME", "STATUS", "IMAGE"]]
     containers = context.docker.containers.list(**kwargs)
-    log.info("Found {} containers.".format(len(containers)))
+    log.info("Found %d containers.", len(containers))
 
     for container in containers:
-        log.debug("`{}` has tags `{}`".format(
-            container.name, ",".join(container.image.tags)))
+        log.debug("`%s` has tags `%s`",
+                  container.name, ",".join(container.image.tags))
         tag = container.image.tags[0] if container.image.tags \
             else container.image.short_id
         output.append([container.name, container.status, tag])

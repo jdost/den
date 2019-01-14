@@ -9,12 +9,13 @@ Config settings::
     debug=1  # equivalent to the `-d`//`--debug` flag on all calls
     verbosity=N  # equivalent to the number of `-v` flags set on all calls
 """
+import logging
 import os.path
 
 import click
 import docker
 
-import den.log as log
+import den.log as den_log
 import den.utils as utils
 
 from den.config import Config
@@ -27,7 +28,11 @@ USER_CONFIG_FILE = (click.get_app_dir("den") + ".ini").replace(utils.HOME, "~")
 CONFIG_FILES = [LOCAL_CONFIG_FILE, USER_CONFIG_FILE]
 __version__ = "0.1"
 
+logging.setLoggerClass(den_log.ClickLogger)
+log = logging.getLogger(__name__)
+
 from den.commands.alias import AliasGroup  # pylint: disable=wrong-import-position
+
 
 class Context(object):
     """Cached context collector for commands
@@ -56,6 +61,7 @@ class Context(object):
         """(cached property) inferred project name"""
         return os.path.basename(self.cwd)
 
+
 @click.group("den", context_settings=CONTEXT_SETTINGS, cls=AliasGroup)
 @click.option("-v", "--verbose", count=True, help="Set verbose logging")
 @click.option("-d", "--debug", is_flag=True, default=False)
@@ -63,13 +69,14 @@ class Context(object):
 def den(context, verbose, debug):
     """Easy development environments aka development dens"""
     verbose = verbose if verbose else \
-            int(context.config.get("default", "verbosity", "0"))
+        int(context.config.get("default", "verbosity", "0"))
     debug = debug if debug else context.config.get("default", "debug")
 
     if debug:
-        verbose = log.DEBUG
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(den_log.VERBOSITY_LEVEL[verbose])
 
-    log.set_level(verbose)
     context.debug = debug
 
     if debug:

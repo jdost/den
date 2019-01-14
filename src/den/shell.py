@@ -5,13 +5,14 @@ finish, calling a command and attaching the current shell to it, capturing the
 output of a command, or just checking if a command lives in the $PATH.
 """
 import distutils.spawn  # pylint: disable=no-name-in-module,import-error
+import logging
 import os
 import subprocess
 import sys
 
 from click import ClickException
 
-import den.log as log
+log = logging.getLogger(__name__)
 
 STDOUT = 1
 STDERR = 2
@@ -47,11 +48,11 @@ def run(cmd, interactive=False, quiet=0, cwd=None, env=None,  # pylint: disable=
     finish.
     """
     if interactive:  # don't quiet the output streams interactively
-        log.debug("Running command `{}` interactively.".format(cmd))
+        log.debug("Running command `%s` interactively.", cmd)
         quiet = 0
         wait = True
     else:
-        log.debug("Running command `{}`.".format(cmd))
+        log.debug("Running command `%s`.", cmd)
 
     action = subprocess.Popen(
         cmd.split(' '),
@@ -69,7 +70,7 @@ def run(cmd, interactive=False, quiet=0, cwd=None, env=None,  # pylint: disable=
     if suppress:
         return action.returncode
     elif action.returncode:
-        log.error("Command `{}` failed.".format(cmd))
+        log.error("Command `%s` failed.", cmd)
         raise CommandFailure(cmd, action.returncode)
     else:
         return action.returncode

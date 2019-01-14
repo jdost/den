@@ -6,6 +6,7 @@ catchall for misc helpers.
 """
 import functools
 import importlib
+import logging
 import os
 import os.path
 
@@ -151,7 +152,7 @@ def uses_docker(func):
     meant to capture possible configuration errors or connection problems
     and cleanly report it up to the user.
     """
-    import den.log as log
+    log = logging.getLogger(__name__)
 
     from requests.exceptions import ConnectionError as RequestsConnectionError
 

@@ -14,6 +14,7 @@ equivalent of running `den create --start`.
 Additional commands exist to interact with the aliases, but they are basically
 re-wraps of the `config` group of commands.
 """
+import logging
 import os
 
 import click
@@ -22,6 +23,8 @@ from .config import get_value, set_value, \
         MissingConfigurationException
 from .. import LOCAL_CONFIG_FILE, USER_CONFIG_FILE
 from ..click_ext import SmartGroup
+
+log = logging.getLogger(__name__)
 
 ALIAS_SECTION = "alias"
 __commands__ = ["interact_alias"]

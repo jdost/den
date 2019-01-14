@@ -4,10 +4,9 @@ Wraps log output to allow for dictating log levels and provide some helpers for
 pretty printing output to the command line.
 """
 import contextlib
+import logging
 import re
 import sys
-
-from functools import partial
 
 import click
 
@@ -15,21 +14,17 @@ from colorama import Fore, init
 
 init()
 
-def _clrd(color, msg):
-    """Generated a clean foreground colored message"""
-    return getattr(Fore, color) + msg + Fore.RESET
-
 SUBSTITUTIONS = [
     (re.compile(r"\`([^\`]*)\`"), Fore.CYAN + r"\1" + Fore.RESET),
 ]
-OUTPUT, ERROR, WARN, INFO, DEBUG = range(5)
-LEVEL = OUTPUT
-LEVELS = {
-    ERROR: _clrd("RED", "ERROR"),
-    WARN: _clrd("YELLOW", "WARN"),
-    INFO: _clrd("GREEN", "INFO"),
-    DEBUG: _clrd("WHITE", "DEBUG"),
-}
+CODE_COLOR = Fore.CYAN
+VERBOSITY_LEVEL = [
+    logging.CRITICAL,
+    logging.ERROR,
+    logging.WARNING,
+    logging.INFO,
+    logging.DEBUG,
+]
 
 
 def _format(msg):
@@ -43,47 +38,82 @@ def _format(msg):
     return msg
 
 
-def echo(msg, level=OUTPUT, **kwargs):
-    """Wrapper for `click.echo` with formatting
+class ClickFormatter(logging.Formatter):
+    """Click specific formatter to allow nice console output
 
-    Uses the consolidated `format` function to apply some cleaning output
-    filters.
+    Plugs into the built in logging module and allows for some nicer CLI output
+    to stdout.
     """
-    if level > LEVEL:
-        return
-    if level is not OUTPUT:
-        msg = "{} - {}".format(LEVELS[level], msg)
-    click.echo(_format(msg), **kwargs)
+    DEFAULT_FORMAT = "%(levelname)s - %(message)s"
+    DEBUG_FORMAT = "%(levelname)s:%(name)s(%(pathname)s:%(lineno)d) - %(message)s"
+    COLORS = {
+        logging.CRITICAL: Fore.RED,
+        logging.ERROR: Fore.RED,
+        logging.WARNING: Fore.YELLOW,
+        logging.INFO: Fore.GREEN,
+        logging.DEBUG: Fore.WHITE,
+    }
+    ALIASES = {
+        logging.CRITICAL: "CRIT",
+        logging.ERROR: "ERR",
+        logging.WARNING: "WARN",
+        logging.INFO: "INFO",
+        logging.DEBUG: "DEBUG",
+    }
 
-# Shorthand partials to default the level argument
-error = partial(echo, level=ERROR)  # pylint: disable=invalid-name
-warn = partial(echo, level=WARN)  # pylint: disable=invalid-name
-info = partial(echo, level=INFO)  # pylint: disable=invalid-name
-debug = partial(echo, level=DEBUG)  # pylint: disable=invalid-name
+    def __init__(self, fmt=None, **kwargs):
+        if not fmt:
+            fmt = self.DEFAULT_FORMAT
+
+        logging.Formatter.__init__(self, fmt=fmt, **kwargs)
+
+    def format(self, record):
+        """Performs nicer console output formatting for the output message
+        """
+        msg = _format(record.getMessage())
+        record.getMessage = lambda: msg
+        record.levelname = (
+            self.COLORS[record.levelno] +
+            self.ALIASES[record.levelno] +
+            Fore.RESET
+        )
+        return logging.Formatter.format(self, record)
 
 
-def set_level(level=OUTPUT):
-    """Define the global logging level."""
-    global LEVEL  # pylint: disable=global-statement
-    LEVEL = level
+class ClickLogger(logging.Logger):
+    """Extends and defaults the logging output
 
-
-@contextlib.contextmanager
-def report_success(msg, debug=None, abort=True):  # pylint: disable=redefined-outer-name
-    """Context wrapper for reporting success of a step
-
-    Prints the step text and then a success or failure suffix depending on if
-    the context raised an error or not.
+    Useful to pass extensions for output beyond this module using the
+    `logging` framework.
     """
-    click.echo(_format(msg) + "...", nl=(LEVEL != OUTPUT))
-    try:
-        yield
-        if LEVEL == OUTPUT:
-            click.echo(_clrd("GREEN", "done"))
-    except click.ClickException:
-        if LEVEL == OUTPUT:
-            click.echo(_clrd("RED", "error"))
-        if debug or LEVEL == DEBUG:
-            raise
-        if abort:
-            sys.exit(1)
+    def __init__(self, *args, **kwargs):
+        logging.Logger.__init__(self, *args, **kwargs)
+
+        output_handler = logging.StreamHandler(sys.stdout)
+        output_handler.setFormatter(ClickFormatter())
+        self.addHandler(output_handler)
+        self.propagate = 0
+
+    @classmethod
+    def echo(cls, msg):
+        """Simple print wrapper for nicer shell output
+        """
+        click.echo(_format(msg))
+
+    @contextlib.contextmanager
+    def report_success(self, msg, debug=None, abort=True):  # pylint: disable=redefined-outer-name
+        """Context wrapper for reporting success of a step
+
+        Prints the step text and then a success or failure suffix depending on if
+        the context raised an error or not.
+        """
+        click.echo(_format(msg) + "...", nl=self.level == logging.DEBUG)
+        try:
+            yield
+            click.echo(Fore.GREEN + "done" + Fore.RESET)
+        except click.ClickException:
+            click.echo(Fore.RED + "error" + Fore.RESET)
+            if debug:
+                raise
+            if abort:
+                sys.exit(1)

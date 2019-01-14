@@ -9,11 +9,10 @@ try:
 except ImportError:
     import configparser as ConfigParser
 import contextlib
+import logging
 import os.path
 
 import click
-
-import den.log as log
 
 from .. import LOCAL_CONFIG_FILE, USER_CONFIG_FILE
 from ..click_ext import SmartGroup
@@ -21,6 +20,7 @@ from ..click_ext import SmartGroup
 __commands__ = ["config_group"]
 
 GET_OUTPUT_FORMAT = "{section}.{key} = {value}"
+log = logging.getLogger(__name__)
 
 
 class MissingConfigurationException(click.ClickException):
@@ -82,6 +82,7 @@ interactions.  If the "user" configuration file is chosen, will use the file
 located at {} instead.
 """.format(LOCAL_CONFIG_FILE, USER_CONFIG_FILE)
 
+
 # > den config <...>
 @click.group("config", help=CONFIG_HELP, cls=SmartGroup,
              short_help="Modify and view configuration values")
@@ -124,6 +125,7 @@ def get_value(context, section, key, output_format=GET_OUTPUT_FORMAT):
     except ConfigParser.NoOptionError:
         raise MissingConfigurationException(section, key)
 
+
 # > den config set <section> [<key>] <value>
 @config_group.command("set", short_help="Define a new configuration value")
 @click.argument("section", nargs=-1, metavar="SECTION [KEY]")  # Name of section to get
@@ -141,6 +143,7 @@ def set_value(context, section, value):
             parser.add_section(section)
 
         parser.set(section, key, value)
+
 
 # > den config rm <section> [<key>]
 @config_group.command("rm", short_help="Delete configuration value(s)")
