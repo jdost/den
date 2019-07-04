@@ -29,9 +29,7 @@ def align_table(table_data, max_length=99999, min_length=1, seperator=" "):
     format_str = ""
     for column in range(len(table_data[0])):
         width = max(min_length, *[len(row[column]) for row in table_data])
-        format_str += "{:" + \
-            str(min(max_length, width)) + \
-            "}" + seperator
+        format_str += "{:" + str(min(max_length, width)) + "}" + seperator
 
     for row in table_data:
         yield format_str.format(*row)
@@ -108,13 +106,15 @@ def dict_merge(*srcs, **kwargs):
     """
     merged_dict = {}
     deep = kwargs.get("_deep", False)
+
     def deep_merge(key, value):  # the recursive check and call
         """Recursive merging check
         This will deep merge dictionary values, otherwise it will overwrite
         """
         if isinstance(value, dict):
-            merged_dict[key] = dict_merge(merged_dict.get(key, {}),
-                                          value, _deep=deep)
+            merged_dict[key] = dict_merge(
+                merged_dict.get(key, {}), value, _deep=deep
+            )
         else:
             merged_dict[key] = value
 
@@ -137,9 +137,12 @@ class DockerConnectionException(click.ClickException):
     to be caught when docker is not running and present a clean error about
     this.
     """
+
     def __init__(self, cause):
-        msg = ("{}, ensure that docker is running and that you have "
-               "permissions to talk to it.").format(cause)
+        msg = (
+            "{}, ensure that docker is running and that you have "
+            "permissions to talk to it."
+        ).format(cause)
         click.ClickException.__init__(self, msg)
 
 
@@ -151,9 +154,10 @@ def uses_docker(func):
     meant to capture possible configuration errors or connection problems
     and cleanly report it up to the user.
     """
-    import den.log as log
-
     from requests.exceptions import ConnectionError as RequestsConnectionError
+    from den import log
+
+    logger = log.get_logger(__name__)
 
     @functools.wraps(func)
     def capture_function(*args, **kwargs):
@@ -167,7 +171,7 @@ def uses_docker(func):
         try:
             func(*args, **kwargs)
         except RequestsConnectionError:
-            log.error("Docker connection failed.")
+            logger.error("Docker connection failed.")
             if debug:
                 raise
             raise DockerConnectionException("Failed to connect to the daemon")

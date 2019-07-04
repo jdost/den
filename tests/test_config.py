@@ -1,12 +1,13 @@
-import den.test
 import os
 import tempfile
+
+import den.test
+from den.commands import config
 
 try:
     from ConfigParser import ConfigParser
 except ImportError:
     from configparser import ConfigParser
-from den.commands import config
 
 
 class ConfigTest(den.test.TestCase):

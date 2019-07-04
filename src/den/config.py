@@ -4,25 +4,23 @@ Defines helpful wrappers around the `ConfigParser` system to obfuscate some of
 the common patterns with interacting with variable system configurations and
 resolution states.
 """
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+import configparser
 import os.path
 
 import den.utils as utils
 
 
-class Config(object):
+class Config:
     """ConfigParser wrapper
 
-    Wraps the ConfigParser.ConfigParser class with some sane utility additions.
+    Wraps the configparser.ConfigParser class with some sane utility additions.
     These include default key values from missing config settings (instead of
     throwing an error) and existance checks when adding config files to be read
     from.
     """
+
     def __init__(self, *files):
-        self.parser = ConfigParser.ConfigParser()
+        self.parser = configparser.ConfigParser()
         base = None
 
         for f in files:
@@ -44,14 +42,14 @@ class Config(object):
         """
         try:
             return self.parser.get(section, key)
-        except ConfigParser.NoSectionError:
+        except configparser.NoSectionError:
             return default
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             return default
 
     def get_section(self, section):
         """Get dict of a section's key value pairs"""
         try:
             return dict(self.parser.items(section))
-        except ConfigParser.NoSectionError:
+        except configparser.NoSectionError:
             return {}

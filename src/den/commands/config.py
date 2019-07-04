@@ -4,21 +4,17 @@ These are to allow a CLI system for reading and writing to the config files.
 There are two targets for each action, the default "local" config and the
 "user" config (which lives in the user's home).
 """
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+import configparser
 import contextlib
 import os.path
 
 import click
 
-import den.log as log
-
-from .. import LOCAL_CONFIG_FILE, USER_CONFIG_FILE
-from ..click_ext import SmartGroup
+from den import LOCAL_CONFIG_FILE, USER_CONFIG_FILE, log
+from den.click_ext import SmartGroup
 
 __commands__ = ["config_group"]
+logger = log.get_logger(__name__)
 
 GET_OUTPUT_FORMAT = "{section}.{key} = {value}"
 
@@ -27,9 +23,13 @@ class MissingConfigurationException(click.ClickException):
     """Exception raised on misses in config lookups, meant to collect error
     display logic for various failure conditions.
     """
+
     def __init__(self, section, key=None):
-        msg = "No `{}` section defined.".format(section) if not key \
-                else "No `{}.{}` option defined.".format(section, key)
+        msg = (
+            "No `{}` section defined.".format(section)
+            if not key
+            else "No `{}.{}` option defined.".format(section, key)
+        )
         click.ClickException.__init__(self, msg)
 
 
@@ -43,12 +43,15 @@ def _expand(section, key=None, key_required=True):
     """
     if not key and "." not in section:
         if key_required:
-            raise click.BadParameter("You need to specify a section and a key "
-                                     "(or `section.key`).",
-                                     param_hint="SECTION [KEY]")
-        else:
-            return section, None
-    elif not key:
+            raise click.BadParameter(
+                "You need to specify a section and a key "
+                "(or `section.key`).",
+                param_hint="SECTION [KEY]",
+            )
+
+        return section, None
+
+    if not key:
         section, key = section.split(".", 1)
 
     return section, key
@@ -61,7 +64,7 @@ def _modify_config(config_file):
     Allows for creating a temporary `ConfigParser` to modify and then save the
     newly modified config file.
     """
-    parser = ConfigParser.ConfigParser()
+    parser = configparser.ConfigParser()
     if os.path.exists(config_file):
         with open(config_file, "r") as f:
             if hasattr(parser, "read_file"):
@@ -80,19 +83,33 @@ CONFIG_HELP = """Interact with the den configuration values
 By default, looks at the "local" configuration file (located at {}) for
 interactions.  If the "user" configuration file is chosen, will use the file
 located at {} instead.
-""".format(LOCAL_CONFIG_FILE, USER_CONFIG_FILE)
+""".format(
+    LOCAL_CONFIG_FILE, USER_CONFIG_FILE
+)
 
 # > den config <...>
-@click.group("config", help=CONFIG_HELP, cls=SmartGroup,
-             short_help="Modify and view configuration values")
-@click.option("-u", "--user", is_flag=True, default=False,
-              help="Use the user level configuration.")
+@click.group(
+    "config",
+    help=CONFIG_HELP,
+    cls=SmartGroup,
+    short_help="Modify and view configuration values",
+)
+@click.option(
+    "-u",
+    "--user",
+    is_flag=True,
+    default=False,
+    help="Use the user level configuration.",
+)
 @click.pass_obj
 def config_group(context, user):
     """Group for config interactions.
     """
-    context.target_config = os.path.expanduser(USER_CONFIG_FILE) if user \
-            else os.path.join(context.cwd, LOCAL_CONFIG_FILE)
+    context.target_config = (
+        os.path.expanduser(USER_CONFIG_FILE)
+        if user
+        else os.path.join(context.cwd, LOCAL_CONFIG_FILE)
+    )
 
 
 # > den config get <section> [<key>]
@@ -108,25 +125,31 @@ def get_value(context, section, key, output_format=GET_OUTPUT_FORMAT):
     """
     section, key = _expand(section, key, key_required=False)
 
-    parser = ConfigParser.ConfigParser()
+    parser = configparser.ConfigParser()
     parser.read(context.target_config)
 
     try:
         if key:
             value = parser.get(section, key)
-            log.echo(output_format.format(section=section, key=key,
-                                          value=value))
+            logger.echo(
+                output_format.format(section=section, key=key, value=value)
+            )
         else:
             for k, v in parser.items(section):
-                log.echo(output_format.format(section=section, key=k, value=v))
-    except ConfigParser.NoSectionError:
+                logger.echo(
+                    output_format.format(section=section, key=k, value=v)
+                )
+    except configparser.NoSectionError:
         raise MissingConfigurationException(section)
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         raise MissingConfigurationException(section, key)
+
 
 # > den config set <section> [<key>] <value>
 @config_group.command("set", short_help="Define a new configuration value")
-@click.argument("section", nargs=-1, metavar="SECTION [KEY]")  # Name of section to get
+@click.argument(
+    "section", nargs=-1, metavar="SECTION [KEY]"
+)  # Name of section to get
 @click.argument("value", default=None)
 @click.pass_obj
 def set_value(context, section, value):
@@ -142,6 +165,7 @@ def set_value(context, section, value):
 
         parser.set(section, key, value)
 
+
 # > den config rm <section> [<key>]
 @config_group.command("rm", short_help="Delete configuration value(s)")
 @click.argument("section")  # Name of the section
@@ -154,12 +178,15 @@ def delete(context, section, key):
     """
     section, key = _expand(section, key, key_required=False)
     if not key:
-        click.confirm("This will delete the entire `{}` "
-                      "section.".format(section), abort=True, default=True)
+        click.confirm(
+            "This will delete the entire `{}` " "section.".format(section),
+            abort=True,
+            default=True,
+        )
 
     with _modify_config(context.target_config) as parser:
         if key:
-            log.echo("Removing {}.{}.".format(section, key))
+            logger.echo("Removing {}.{}.".format(section, key))
             parser.remove_option(section, key)
         else:
             parser.remove_section(section)

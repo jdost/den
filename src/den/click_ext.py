@@ -13,8 +13,11 @@ def find_unique_short(group, context, command_name):
     and return it if there is, otherwise will return the options (`None` for
     a complete miss).
     """
-    possible_commands = [command for command in group.list_commands(context)
-                         if command.startswith(command_name)]
+    possible_commands = [
+        command
+        for command in group.list_commands(context)
+        if command.startswith(command_name)
+    ]
 
     if len(possible_commands) == 1:
         return click.Group.get_command(group, context, possible_commands[0])
@@ -27,6 +30,7 @@ class SmartGroup(click.Group):
 
     Collection of extended functionality added to the default `Group` object.
     """
+
     def get_command(self, ctx, cmd_name):
         command = click.Group.get_command(self, ctx, cmd_name)
         if command is not None:
@@ -36,6 +40,8 @@ class SmartGroup(click.Group):
         if isinstance(command, list):
             ctx.fail(
                 "`{}` is ambiguous and matched multiple commands: {}".format(
-                    cmd_name, ", ".join(command)))
+                    cmd_name, ", ".join(command)
+                )
+            )
 
         return command

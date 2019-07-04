@@ -11,7 +11,9 @@ import sys
 
 from click import ClickException
 
-import den.log as log
+from den import log
+
+logger = log.get_logger(__name__)
 
 STDOUT = 1
 STDERR = 2
@@ -30,13 +32,21 @@ class CommandFailure(ClickException):
     provides a basic summary of the exit condition and command that failed for
     exception raising.
     """
+
     def __init__(self, cmd, exitcode):
         msg = "command: {} failed with {!s}".format(cmd, exitcode)
         ClickException.__init__(self, msg)
 
 
-def run(cmd, interactive=False, quiet=0, cwd=None, env=None,  # pylint: disable=too-many-arguments
-        wait=True, suppress=False):  # pylint: disable=too-many-arguments
+def run(
+    cmd,
+    interactive=False,
+    quiet=0,
+    cwd=None,
+    env=None,
+    wait=True,
+    suppress=False,
+):  # pylint: disable=too-many-arguments
     """Run the command in a subprocess shell
 
     Can be configured how the command is handled with quietting the stderr or
@@ -47,14 +57,14 @@ def run(cmd, interactive=False, quiet=0, cwd=None, env=None,  # pylint: disable=
     finish.
     """
     if interactive:  # don't quiet the output streams interactively
-        log.debug("Running command `{}` interactively.".format(cmd))
+        logger.debug("Running command `%s` interactively.", cmd)
         quiet = 0
         wait = True
     else:
-        log.debug("Running command `{}`.".format(cmd))
+        logger.debug("Running command `%s`.", cmd)
 
     action = subprocess.Popen(
-        cmd.split(' '),
+        cmd.split(" "),
         cwd=cwd,
         env=env,
         stdin=sys.stdin if interactive else None,
@@ -68,17 +78,17 @@ def run(cmd, interactive=False, quiet=0, cwd=None, env=None,  # pylint: disable=
     action.wait()
     if suppress:
         return action.returncode
-    elif action.returncode:
-        log.error("Command `{}` failed.".format(cmd))
+
+    if action.returncode:
+        logger.error("Command `%s` failed.", cmd)
         raise CommandFailure(cmd, action.returncode)
-    else:
-        return action.returncode
+
+    return action.returncode
 
 
 def output(cmd, **kwargs):
     """Run the supplied command and return the lines of output."""
-    return subprocess.check_output(cmd.split(' '), **kwargs)\
-            .strip().split('\n')
+    return subprocess.check_output(cmd.split(" "), **kwargs).strip().split("\n")
 
 
 # NOTE: this is not the best option, but works for 2.7, shutils.which is

@@ -1,11 +1,13 @@
 handlers = {}
 
+
 def define_handler(name):
     def decorator(func):
         handlers[name] = func
         return func
 
     return decorator
+
 
 class DictObject(object):
     def __init__(self, **props):
@@ -14,6 +16,7 @@ class DictObject(object):
                 setattr(self, k, DictObject(**v))
             else:
                 setattr(self, k, v)
+
 
 @define_handler("docker.containers.list")
 def _fix_container(*containers):
@@ -44,5 +47,8 @@ class TestDocker(object):
 
         val = self._values.get(name, {})
         full_name = ".".join([self.name, name])
-        return TestDocker(full_name, **val) if isinstance(val, dict) \
+        return (
+            TestDocker(full_name, **val)
+            if isinstance(val, dict)
             else TestDocker(full_name, val)
+        )

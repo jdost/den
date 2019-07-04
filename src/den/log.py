@@ -1,35 +1,37 @@
-"""Log output wrapper
+"""Extend the built in logging functionality for CLI output
 
-Wraps log output to allow for dictating log levels and provide some helpers for
-pretty printing output to the command line.
+Extends what the logging module provides, which works well for services, to
+act cleanly with a CLI application.  This allows for things to remain pythonic
+while getting a nice CLI output behavior
 """
 import contextlib
+import logging
 import re
 import sys
-
-from functools import partial
+from pathlib import Path
+from types import TracebackType
+from typing import Any, Dict, Iterator, Optional, Tuple, Union
 
 import click
 
-from colorama import Fore, init
+_SysExcInfoType = Union[
+    Tuple[type, BaseException, Optional[TracebackType]], Tuple[None, None, None]
+]
+_ExcInfoType = Union[None, bool, _SysExcInfoType, BaseException]
 
-init()
-
-def _clrd(color, msg):
-    """Generated a clean foreground colored message"""
-    return getattr(Fore, color) + msg + Fore.RESET
 
 SUBSTITUTIONS = [
-    (re.compile(r"\`([^\`]*)\`"), Fore.CYAN + r"\1" + Fore.RESET),
+    (re.compile(r"\`([^\`]*)\`"), lambda s: click.style(s.group(1), fg="cyan"))
 ]
-OUTPUT, ERROR, WARN, INFO, DEBUG = range(5)
-LEVEL = OUTPUT
-LEVELS = {
-    ERROR: _clrd("RED", "ERROR"),
-    WARN: _clrd("YELLOW", "WARN"),
-    INFO: _clrd("GREEN", "INFO"),
-    DEBUG: _clrd("WHITE", "DEBUG"),
-}
+LEVEL_LOOKUP = [
+    logging.NOTSET,
+    logging.CRITICAL,
+    logging.ERROR,
+    logging.WARNING,
+    logging.INFO,
+    logging.DEBUG,
+]
+CWD = str(Path.cwd())
 
 
 def _format(msg):
@@ -43,47 +45,148 @@ def _format(msg):
     return msg
 
 
-def echo(msg, level=OUTPUT, **kwargs):
-    """Wrapper for `click.echo` with formatting
+class CLIFormatter(logging.Formatter):
+    """CLI specific log output formatter
 
-    Uses the consolidated `format` function to apply some cleaning output
-    filters.
+    Performs various ANSI coloring and nice output patterns to allow for a
+    simple and rich experience with logging during operation.
     """
-    if level > LEVEL:
-        return
-    if level is not OUTPUT:
-        msg = "{} - {}".format(LEVELS[level], msg)
-    click.echo(_format(msg), **kwargs)
 
-# Shorthand partials to default the level argument
-error = partial(echo, level=ERROR)  # pylint: disable=invalid-name
-warn = partial(echo, level=WARN)  # pylint: disable=invalid-name
-info = partial(echo, level=INFO)  # pylint: disable=invalid-name
-debug = partial(echo, level=DEBUG)  # pylint: disable=invalid-name
+    DEFAULT_FORMAT = "%(levelname)s - %(message)s"
+    COLORS = {  # Foreground color for each levelname
+        logging.CRITICAL: "red",
+        logging.ERROR: "red",
+        logging.WARNING: "yellow",
+        logging.INFO: "green",
+        logging.DEBUG: "white",
+    }
+    ALIASES = {  # Shorthand output alias for each levelname output
+        logging.CRITICAL: "CRIT",
+        logging.ERROR: "ERR",
+        logging.WARNING: "WARN",
+        logging.INFO: "INFO",
+        logging.DEBUG: "DEBUG",
+    }
+
+    def __init__(self, fmt: Optional[str] = None, **kwargs: Any) -> None:
+        fmt = fmt if fmt is not None else self.DEFAULT_FORMAT
+        super().__init__(fmt=fmt, **kwargs)
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Custom modification of the LogRecord for CLI output
+        """
+        record.msg = _format(record.msg)
+        record.pathname = str(Path(record.pathname).resolve()).replace(CWD, ".")
+        record.levelname = click.style(
+            self.ALIASES[record.levelno], fg=self.COLORS[record.levelno]
+        )
+        return super().format(record)
 
 
-def set_level(level=OUTPUT):
-    """Define the global logging level."""
-    global LEVEL  # pylint: disable=global-statement
-    LEVEL = level
+class CLILogger(logging.Logger):
+    """CLI specific logging class
 
-
-@contextlib.contextmanager
-def report_success(msg, debug=None, abort=True):  # pylint: disable=redefined-outer-name
-    """Context wrapper for reporting success of a step
-
-    Prints the step text and then a success or failure suffix depending on if
-    the context raised an error or not.
+    Wraps the internal logging logic to provide improved functionality for
+    logging output using the normal logging system in regards to a CLI
+    application.
     """
-    click.echo(_format(msg) + "...", nl=(LEVEL != OUTPUT))
-    try:
-        yield
-        if LEVEL == OUTPUT:
-            click.echo(_clrd("GREEN", "done"))
-    except click.ClickException:
-        if LEVEL == OUTPUT:
-            click.echo(_clrd("RED", "error"))
-        if debug or LEVEL == DEBUG:
+
+    _pending_log: bool
+
+    def __init__(self, name: str, level: int = logging.NOTSET) -> None:
+        self._pending_log = False
+        super().__init__(name, level)
+
+    def setLevel(self, level: Union[int, str] = logging.ERROR) -> None:
+        """Setup logger level
+        """
+        assert isinstance(level, int), "Must use integer logging level"
+        if level < logging.CRITICAL:  # is not a logging level
+            level = (
+                LEVEL_LOOKUP[level]
+                if level < len(LEVEL_LOOKUP)
+                else logging.DEBUG
+            )
+
+        return super().setLevel(level)
+
+    def setup(
+        self, level: int, formatter: Optional[logging.Formatter] = None
+    ) -> None:
+        """Helper method for performing some deferred initialization.
+        Defines a default handler if one is not setup by default, defines a
+        formatter using the CLIFormatter if one is not specified, and
+        normalizes the logging level.
+        """
+        if not self.hasHandlers():
+            stdout_output = logging.StreamHandler(sys.stdout)
+            stdout_output.setFormatter(
+                formatter if formatter is not None else CLIFormatter()
+            )
+            self.addHandler(stdout_output)
+
+        self.setLevel(level)
+
+    def _log(  # pylint: disable=too-many-arguments
+        self,
+        level: int,
+        msg: Any,
+        args: Tuple[Any],
+        exc_info: _ExcInfoType = None,
+        extra: Optional[Dict[str, Any]] = None,
+        stack_info: bool = False,
+    ) -> None:
+        """Wraps the log caller to allow for tracking if hanging log lines
+        should be closed before outputting new messages.  This acts as a
+        passthrough with the one goal of printing pending newlines to avoid
+        for jumbled log output.
+        """
+        if CLILogger._pending_log:
+            click.echo("")
+            CLILogger._pending_log = False
+
+        # uses the `getattr` call to bypass a lack of type signature for the
+        # private _log method
+        return getattr(super(), "_log")(
+            level,
+            msg,
+            args=args,
+            exc_info=exc_info,
+            extra=extra,
+            stack_info=stack_info,
+        )
+
+    @contextlib.contextmanager
+    def report_success(self, msg) -> Iterator[None]:
+        """Context wrapper for reporting success of a step
+
+        Prints the step text and then a success or failure suffix depending on
+        if the context raised an error or not.
+        """
+        click.echo(
+            _format(msg) + "...",
+            nl=(self.getEffectiveLevel() < logging.WARNING),
+        )
+        CLILogger._pending_log = True
+        try:
+            yield
+            click.secho("done", fg="green")
+        except Exception:
+            if CLILogger._pending_log:
+                click.secho("error", fg="red")
             raise
-        if abort:
-            sys.exit(1)
+
+    @staticmethod
+    def echo(msg: str, *args: Optional[str]) -> None:
+        """Simple output to stdout with formatting helpers applied."""
+        click.echo(_format(msg % args))
+
+
+logging.setLoggerClass(CLILogger)
+
+
+def get_logger(name: str) -> CLILogger:
+    """Type safety wrapper for the `logging.getLogger` function."""
+    logger = logging.getLogger(name)
+    assert isinstance(logger, CLILogger)
+    return logger

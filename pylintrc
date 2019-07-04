@@ -9,8 +9,8 @@ profile=no
 suggestion-mode=yes
 
 # Blacklist
-ignore=test  # Paths
-ignore-patterns=
+ignore=test,setup.py  # Paths
+ignore-patterns=\*.pyi
 
 
 [MESSAGES CONTROL]
@@ -29,7 +29,8 @@ confidence=
 #
 disable=locally-disabled,  # lets case by case disabling work
    cyclic-import,  # cannot be locally disabled, allow for commands to import other
-      # commands
+                   # commands
+   bad-continuation,  # black does the indenting, let it handle this
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -72,7 +73,7 @@ never-returning-functions=optparse.Values,sys.exit
 ignore-long-lines=^\s*(# )?<?https?://\S+>?$
 indent-after-parens=4
 indent-string='    '
-max-line-length=100
+max-line-length=80
 max-module-lines=1000
 no-space-check=trailing-comma,dict-separator
 single-line-class-stmt=no

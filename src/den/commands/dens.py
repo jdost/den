@@ -18,20 +18,25 @@ Config settings::
 """
 import click
 
-from .. import log
-from .. import shell
-from .. import utils
+from den import log, shell, utils
 
-
-DOCKER_CREATE_CMD = ("docker create --hostname {name} --interactive "
-                     "--label den --name {name} {ports}--tty --volume "
-                     "{cwd}:/src{extra_args} {image}")
+logger = log.get_logger(__name__)
+DOCKER_CREATE_CMD = (
+    "docker create --hostname {name} --interactive "
+    "--label den --name {name} {ports}--tty --volume "
+    "{cwd}:/src{extra_args} {image}"
+)
 DOCKER_START_CMD = "docker start --attach --interactive {name}"
 DOCKER_STOP_CMD = "docker stop --time 1 {name}"
 DOCKER_DELETE_CMD = "docker rm --force {name}"
 
-__commands__ = ["create_den", "start_den", "stop_den", "delete_den",
-                "list_dens"]
+__commands__ = [
+    "create_den",
+    "start_den",
+    "stop_den",
+    "delete_den",
+    "list_dens",
+]
 
 
 class UndefinedImageException(click.ClickException):
@@ -39,22 +44,35 @@ class UndefinedImageException(click.ClickException):
     Images are defined either via a CLI argument or via the configuration
     files.
     """
+
     def __init__(self):
         click.ClickException.__init__(
-            self, "There is no defined image to build off of.")
+            self, "There is no defined image to build off of."
+        )
 
 
 # > den create [OPTIONS] [<name>] [-- <cmd>]
 @click.command("create", short_help="Create a new den")
-@click.option("-s", "--start", is_flag=True, default=False,
-              help="Start the den upon creation")
+@click.option(
+    "-s",
+    "--start",
+    is_flag=True,
+    default=False,
+    help="Start the den upon creation",
+)
 @click.option("-i", "--image", default=None, help="Image to build off of")
-@click.option("--with-docker", is_flag=True, default=False,
-              help="Mount docker daemon within container")
+@click.option(
+    "--with-docker",
+    is_flag=True,
+    default=False,
+    help="Mount docker daemon within container",
+)
 @click.argument("name", required=False, default=None)  # Name for the den
 @click.argument("cmd", nargs=-1)  # Command to run in container
 @click.pass_obj
-def create_den(context, start, image, with_docker, name, cmd):  # pylint: disable=too-many-arguments
+def create_den(
+    context, start, image, with_docker, name, cmd
+):  # pylint: disable=too-many-arguments
     """Creates the development den
 
     This is a reusable container created based on the argument and configured
@@ -63,13 +81,17 @@ def create_den(context, start, image, with_docker, name, cmd):  # pylint: disabl
     """
     use_default = image is None
     if use_default:
-        log.info("No image provided, using default")
+        logger.info("No image provided, using default")
     image = image if image else context.config.get("image", "default", False)
     if not image:
-        log.warn("No default found in configuration files.")
+        logger.warning("No default found in configuration files.")
         raise UndefinedImageException()
 
-    name = name if name else context.config.get("image", "name", context.default_name)
+    name = (
+        name
+        if name
+        else context.config.get("image", "name", context.default_name)
+    )
     cmd = cmd if cmd else context.config.get("image", "command")
     cwd = (context.cwd + "/") if not context.cwd.endswith("/") else context.cwd
     extra_args = [""]
@@ -83,18 +105,29 @@ def create_den(context, start, image, with_docker, name, cmd):  # pylint: disabl
 
     ports = []
     for guest, host in context.config.get_section("ports").items():
-        ports.append("--publish {}:{}".format(guest, host) if host else str(guest))
+        ports.append(
+            "--publish {}:{}".format(guest, host) if host else str(guest)
+        )
     ports = " ".join(ports) + " " if ports else ""
 
     # NOTE: tried to do creation using the API but volume mounting didn't work
     cmd = " {}".format(cmd) if cmd else ""
-    with log.report_success(
-        "Creating den environment `{}` with `{}` base"
-        .format(name, image if not use_default else "default"),
-        debug=context.debug):
-        shell.run(DOCKER_CREATE_CMD.format(
-            name=name, ports=ports, cwd=cwd, image=image,
-            extra_args=" ".join(extra_args)) + cmd, quiet=shell.ALL)
+    with logger.report_success(
+        "Creating den environment `{}` with `{}` base".format(
+            name, image if not use_default else "default"
+        )
+    ):
+        shell.run(
+            DOCKER_CREATE_CMD.format(
+                name=name,
+                ports=ports,
+                cwd=cwd,
+                image=image,
+                extra_args=" ".join(extra_args),
+            )
+            + cmd,
+            quiet=shell.ALL,
+        )
 
     if start:
         start_den.callback(name)
@@ -108,15 +141,21 @@ def start_den(context, name):
     """Starts the specified development den
     """
     name = name if name else context.default_name
-    log.echo("Starting `{}` environment...".format(name))
-    shell.run(DOCKER_START_CMD.format(**locals()), interactive=True,
-              suppress=True)
+    logger.echo("Starting `%s` environment...", name)
+    shell.run(
+        DOCKER_START_CMD.format(**locals()), interactive=True, suppress=True
+    )
 
 
 # > den stop [<name>]
 @click.command("stop", short_help="Stop a running den")
-@click.option("-d", "--delete", is_flag=True, default=False,
-              help="Delete the den after stopping it")
+@click.option(
+    "-d",
+    "--delete",
+    is_flag=True,
+    default=False,
+    help="Delete the den after stopping it",
+)
 @click.argument("name", required=False, default=None)  # Name for the den
 @click.pass_obj
 def stop_den(context, delete, name=None):
@@ -127,8 +166,7 @@ def stop_den(context, delete, name=None):
         delete = False
 
     name = name if name else context.default_name
-    with log.report_success("Spinning down `{}` environment".format(name),
-                            debug=context.debug):
+    with logger.report_success("Spinning down `{}` environment".format(name)):
         shell.run(DOCKER_STOP_CMD.format(**locals()), quiet=shell.ALL)
 
     if delete:
@@ -137,9 +175,12 @@ def stop_den(context, delete, name=None):
 
 # > den delete [<name>]
 @click.command("delete", short_help="Delete an existing den")
-@click.option("-a", "--all", is_flag=True, default=False,
-              help="Delete all dens")
-@click.argument("names", required=False, nargs=-1, default=None)  # Name for the den
+@click.option(
+    "-a", "--all", is_flag=True, default=False, help="Delete all dens"
+)
+@click.argument(
+    "names", required=False, nargs=-1, default=None
+)  # Name for the den
 @click.pass_obj
 @utils.uses_docker
 def delete_den(context, all, names):  # pylint: disable=redefined-builtin
@@ -149,25 +190,35 @@ def delete_den(context, all, names):  # pylint: disable=redefined-builtin
     """
     if all:
         den_filter = {"all": True, "filters": {"label": "den"}}
-        names = [container.name for container
-                 in context.docker.containers.list(**den_filter)]
+        names = [
+            container.name
+            for container in context.docker.containers.list(**den_filter)
+        ]
         if names:
-            click.confirm("This will delete the containers: "
-                          "{}".format(", ".join(names)), abort=True)
+            click.confirm(
+                "This will delete the containers: "
+                "{}".format(", ".join(names)),
+                abort=True,
+            )
     elif not names:
         names = [context.default_name]
 
     for name in names:
-        with log.report_success(
-            "Removing the `{}` environment".format(name),
-            debug=context.debug, abort=False):
+        with logger.report_success(
+            "Removing the `{}` environment".format(name)
+        ):
             shell.run(DOCKER_DELETE_CMD.format(**locals()), quiet=shell.ALL)
 
 
 # > den list
 @click.command("list", short_help="List current dens")
-@click.option("-r", "--running", is_flag=True, default=False,
-              help="Only display running dens")
+@click.option(
+    "-r",
+    "--running",
+    is_flag=True,
+    default=False,
+    help="Only display running dens",
+)
 @click.pass_obj
 @utils.uses_docker
 def list_dens(context, running):
@@ -176,19 +227,20 @@ def list_dens(context, running):
     Filters based on the metadata label applied and gives a simple summary of
     the state of containers running.
     """
-    kwargs = {
-        "all": not running,
-        "filters": {"label": "den"}
-    }
+    kwargs = {"all": not running, "filters": {"label": "den"}}
     output = [["NAME", "STATUS", "IMAGE"]]
     containers = context.docker.containers.list(**kwargs)
-    log.info("Found {} containers.".format(len(containers)))
+    logger.info("Found %i containers.", len(containers))
 
     for container in containers:
-        log.debug("`{}` has tags `{}`".format(
-            container.name, ",".join(container.image.tags)))
-        tag = container.image.tags[0] if container.image.tags \
-                else container.image.short_id
+        logger.debug(
+            "`%s` has tags `%s`", container.name, ",".join(container.image.tags)
+        )
+        tag = (
+            container.image.tags[0]
+            if container.image.tags
+            else container.image.short_id
+        )
         output.append([container.name, container.status, tag])
 
-    log.echo("\n".join(utils.align_table(output, min_length=8)))
+    logger.echo("\n".join(utils.align_table(output, min_length=8)))

@@ -1,6 +1,6 @@
 import functools
 
-from .test_base import TestCase, ConfigurationError
+from .test_base import ConfigurationError, TestCase
 
 
 def with_config(**values):

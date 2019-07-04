@@ -10,8 +10,9 @@ class TestContext(object):
     @property
     def docker(self):
         if not hasattr(self, "_docker"):
-            raise NotConfiguredError("This test needs to define a `docker` "
-                                     "state.")
+            raise NotConfiguredError(
+                "This test needs to define a `docker` " "state."
+            )
         return self._docker
 
 

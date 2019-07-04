@@ -18,10 +18,13 @@ import os
 
 import click
 
-from .config import get_value, set_value, \
-        MissingConfigurationException
-from .. import LOCAL_CONFIG_FILE, USER_CONFIG_FILE
-from ..click_ext import SmartGroup
+from den import LOCAL_CONFIG_FILE, USER_CONFIG_FILE
+from den.click_ext import SmartGroup
+from den.commands.config import (
+    MissingConfigurationException,
+    get_value,
+    set_value,
+)
 
 ALIAS_SECTION = "alias"
 __commands__ = ["interact_alias"]
@@ -38,7 +41,7 @@ def find(context, alias):
         return None
 
     expansion = context.config.get(ALIAS_SECTION, alias)
-    return expansion.split(' ') if expansion else None
+    return expansion.split(" ") if expansion else None
 
 
 class AliasGroup(SmartGroup):
@@ -48,6 +51,7 @@ class AliasGroup(SmartGroup):
     command does not normally resolve.  This means that if an alias is defined
     that overlaps with an existing command, it will never be run.
     """
+
     def resolve_command(self, ctx, args):
         try:
             return click.Group.resolve_command(self, ctx, args)
@@ -63,16 +67,22 @@ class AliasGroup(SmartGroup):
 
 class NoAliasException(click.ClickException):
     """Exception raised when an alias lookup fails. """
+
     def __init__(self, alias):
-        click.ClickException.__init__(self, "No `{}` alias "
-                                      "defined.".format(alias))
+        click.ClickException.__init__(
+            self, "No `{}` alias " "defined.".format(alias)
+        )
 
 
 # > den alias <alias> [<command>]
-@click.command("alias",
-               short_help="Create or modify command aliases")
-@click.option("-u", "--user", is_flag=True, default=False,
-              help="Use the user level configuration.")
+@click.command("alias", short_help="Create or modify command aliases")
+@click.option(
+    "-u",
+    "--user",
+    is_flag=True,
+    default=False,
+    help="Use the user level configuration.",
+)
 @click.argument("alias")  # alias to act on
 @click.argument("command", nargs=-1, required=False)  # optional command to set
 @click.pass_context
@@ -84,15 +94,23 @@ def interact_alias(context, user, alias, command):
     acts as a command expansion: `den alias crst -- create --start` would mean
     that `den crst` would be expanded to `den create --start`.
     """
-    context.obj.target_config = os.path.expanduser(USER_CONFIG_FILE) if user \
-            else os.path.join(context.obj.cwd, LOCAL_CONFIG_FILE)
+    context.obj.target_config = (
+        os.path.expanduser(USER_CONFIG_FILE)
+        if user
+        else os.path.join(context.obj.cwd, LOCAL_CONFIG_FILE)
+    )
 
     if command:
-        context.invoke(set_value, section=[ALIAS_SECTION, alias],
-                       value=" ".join(command))
+        context.invoke(
+            set_value, section=[ALIAS_SECTION, alias], value=" ".join(command)
+        )
     else:
         try:
-            context.invoke(get_value, section=ALIAS_SECTION, key=alias,
-                           output_format=ALIAS_OUTPUT_FORMAT)
+            context.invoke(
+                get_value,
+                section=ALIAS_SECTION,
+                key=alias,
+                output_format=ALIAS_OUTPUT_FORMAT,
+            )
         except MissingConfigurationException:
             raise NoAliasException(alias)
