@@ -20,7 +20,7 @@ lint: pylint mypy
 
 mypy: venv
 	@echo " >> Type-checking codebase with mypy"
-	@MYPYPATH=./tests/stubs ${PYTHON} -m mypy src && echo "OK"
+	@MYPYPATH=./tests/stubs ${PYTHON} -m mypy --strict src && echo "OK"
 	@echo ""
 
 pylint: venv

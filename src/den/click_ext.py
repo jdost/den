@@ -3,10 +3,14 @@
 Just a collection of extensions made to add additional functionality to click
 objects.
 """
+from typing import List, Optional, Union
+
 import click
 
 
-def find_unique_short(group, context, command_name):
+def find_unique_short(
+    group: click.Group, context: click.Context, command_name: str
+) -> Optional[Union[click.Command, List[str]]]:
     """Shorthand resolution
     Attempt to determine a shorthand expansion for a command, this will try and
     see if there is a unique command that starts with the `command_name` value
@@ -31,17 +35,19 @@ class SmartGroup(click.Group):
     Collection of extended functionality added to the default `Group` object.
     """
 
-    def get_command(self, ctx, cmd_name):
+    def get_command(
+        self, ctx: click.Context, cmd_name: str
+    ) -> Optional[click.Command]:
         command = click.Group.get_command(self, ctx, cmd_name)
         if command is not None:
             return command
 
-        command = find_unique_short(self, ctx, cmd_name)
-        if isinstance(command, list):
+        possible_commands = find_unique_short(self, ctx, cmd_name)
+        if isinstance(possible_commands, list):
             ctx.fail(
                 "`{}` is ambiguous and matched multiple commands: {}".format(
-                    cmd_name, ", ".join(command)
+                    cmd_name, ", ".join(possible_commands)
                 )
             )
 
-        return command
+        return possible_commands

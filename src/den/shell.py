@@ -8,6 +8,8 @@ import distutils.spawn  # pylint: disable=no-name-in-module,import-error
 import os
 import subprocess
 import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 from click import ClickException
 
@@ -33,20 +35,20 @@ class CommandFailure(ClickException):
     exception raising.
     """
 
-    def __init__(self, cmd, exitcode):
+    def __init__(self, cmd: str, exitcode: int) -> None:
         msg = "command: {} failed with {!s}".format(cmd, exitcode)
         ClickException.__init__(self, msg)
 
 
-def run(
-    cmd,
-    interactive=False,
-    quiet=0,
-    cwd=None,
-    env=None,
-    wait=True,
-    suppress=False,
-):  # pylint: disable=too-many-arguments
+def run(  # pylint: disable=too-many-arguments
+    cmd: str,
+    interactive: bool = False,
+    quiet: int = 0,
+    cwd: Optional[Union[Path, str]] = None,
+    env: Optional[Dict[str, str]] = None,
+    wait: bool = True,
+    suppress: bool = False,
+) -> Union[int, subprocess.Popen]:
     """Run the command in a subprocess shell
 
     Can be configured how the command is handled with quietting the stderr or
@@ -86,14 +88,16 @@ def run(
     return action.returncode
 
 
-def output(cmd, **kwargs):
+def output(cmd: str, **kwargs: Any) -> List[str]:
     """Run the supplied command and return the lines of output."""
-    return subprocess.check_output(cmd.split(" "), **kwargs).strip().split("\n")
+    std_output = "\n".join(subprocess.check_output(cmd.split(" "), **kwargs))
+    assert isinstance(std_output, str)
+    return std_output.strip().split("\n")
 
 
 # NOTE: this is not the best option, but works for 2.7, shutils.which is
 #       preferred but is only in 3.3+
-def is_installed(command):
+def is_installed(command: str) -> Optional[str]:
     """Checks if the specified executable exists on the path
 
     Useful for checking install dependencies or giving better feedback on a

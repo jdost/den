@@ -15,6 +15,7 @@ Additional commands exist to interact with the aliases, but they are basically
 re-wraps of the `config` group of commands.
 """
 import os
+from typing import List, Optional, Tuple
 
 import click
 
@@ -25,13 +26,14 @@ from den.commands.config import (
     get_value,
     set_value,
 )
+from den.context import Context
 
 ALIAS_SECTION = "alias"
 __commands__ = ["interact_alias"]
 ALIAS_OUTPUT_FORMAT = "`den {key}` is aliased to `den {value}`"
 
 
-def find(context, alias):
+def find(context: Context, alias: str) -> Optional[List[str]]:
     """Lookup command alias
 
     Retrieves the expanded command when provided with the application context
@@ -52,7 +54,9 @@ class AliasGroup(SmartGroup):
     that overlaps with an existing command, it will never be run.
     """
 
-    def resolve_command(self, ctx, args):
+    def resolve_command(
+        self, ctx: click.Context, args: List[str]
+    ) -> Tuple[str, click.Command, List[str]]:
         try:
             return click.Group.resolve_command(self, ctx, args)
         except click.ClickException:
@@ -68,7 +72,7 @@ class AliasGroup(SmartGroup):
 class NoAliasException(click.ClickException):
     """Exception raised when an alias lookup fails. """
 
-    def __init__(self, alias):
+    def __init__(self, alias: str) -> None:
         click.ClickException.__init__(
             self, "No `{}` alias " "defined.".format(alias)
         )
@@ -86,7 +90,9 @@ class NoAliasException(click.ClickException):
 @click.argument("alias")  # alias to act on
 @click.argument("command", nargs=-1, required=False)  # optional command to set
 @click.pass_context
-def interact_alias(context, user, alias, command):
+def interact_alias(
+    context: click.Context, user: bool, alias: str, command: List[str]
+) -> None:
     """Check, modify, or create command aliases
 
     If a command is provided, will set the alias to the command, if it is not

@@ -7,11 +7,13 @@ There are two targets for each action, the default "local" config and the
 import configparser
 import contextlib
 import os.path
+from typing import Generator, Optional, Tuple
 
 import click
 
 from den import LOCAL_CONFIG_FILE, USER_CONFIG_FILE, log
 from den.click_ext import SmartGroup
+from den.context import Context
 
 __commands__ = ["config_group"]
 logger = log.get_logger(__name__)
@@ -24,7 +26,7 @@ class MissingConfigurationException(click.ClickException):
     display logic for various failure conditions.
     """
 
-    def __init__(self, section, key=None):
+    def __init__(self, section: str, key: Optional[str] = None) -> None:
         msg = (
             "No `{}` section defined.".format(section)
             if not key
@@ -33,7 +35,9 @@ class MissingConfigurationException(click.ClickException):
         click.ClickException.__init__(self, msg)
 
 
-def _expand(section, key=None, key_required=True):
+def _expand(
+    section: str, key: Optional[str] = None, key_required: bool = True
+) -> Tuple[str, Optional[str]]:
     """Section//Key expansion utility
 
     Will get the section and key target in a config from the provided values.
@@ -58,7 +62,9 @@ def _expand(section, key=None, key_required=True):
 
 
 @contextlib.contextmanager
-def _modify_config(config_file):
+def _modify_config(
+    config_file: str
+) -> Generator[configparser.ConfigParser, None, None]:
     """Config modification context
 
     Allows for creating a temporary `ConfigParser` to modify and then save the
@@ -102,7 +108,7 @@ located at {} instead.
     help="Use the user level configuration.",
 )
 @click.pass_obj
-def config_group(context, user):
+def config_group(context: Context, user: bool) -> None:
     """Group for config interactions.
     """
     context.target_config = (
@@ -117,7 +123,12 @@ def config_group(context, user):
 @click.argument("section")  # Name of section to get
 @click.argument("key", required=False, default=None)  # Name of the key
 @click.pass_obj
-def get_value(context, section, key, output_format=GET_OUTPUT_FORMAT):
+def get_value(
+    context: Context,
+    section: str,
+    key: Optional[str],
+    output_format: str = GET_OUTPUT_FORMAT,
+) -> None:
     """Retrieve the value in a config
 
     Will return all values under SECTION if just SECTION is defined, otherwise
@@ -126,6 +137,7 @@ def get_value(context, section, key, output_format=GET_OUTPUT_FORMAT):
     section, key = _expand(section, key, key_required=False)
 
     parser = configparser.ConfigParser()
+    assert isinstance(context.target_config, str)
     parser.read(context.target_config)
 
     try:
@@ -152,12 +164,14 @@ def get_value(context, section, key, output_format=GET_OUTPUT_FORMAT):
 )  # Name of section to get
 @click.argument("value", default=None)
 @click.pass_obj
-def set_value(context, section, value):
+def set_value(context: Context, section: str, value: str) -> None:
     """Set a config value
 
     Sets the SECTION.KEY config value to VALUE and saves the file.
     """
     section, key = _expand(*section)
+    assert isinstance(context.target_config, str)
+    assert key is not None
 
     with _modify_config(context.target_config) as parser:
         if not parser.has_section(section):
@@ -171,22 +185,23 @@ def set_value(context, section, value):
 @click.argument("section")  # Name of the section
 @click.argument("key", required=False, default=None)  # Name of the key
 @click.pass_obj
-def delete(context, section, key):
+def delete(context: Context, section: str, key: str) -> None:
     """Remove a config value or section
 
     If a KEY is not provided, the entire SECTION will be removed.
     """
-    section, key = _expand(section, key, key_required=False)
-    if not key:
+    target = _expand(section, key, key_required=False)
+    assert isinstance(context.target_config, str)
+    if target[1] is None:
         click.confirm(
-            "This will delete the entire `{}` " "section.".format(section),
+            "This will delete the entire `{}` " "section.".format(target[0]),
             abort=True,
             default=True,
         )
 
     with _modify_config(context.target_config) as parser:
-        if key:
-            logger.echo("Removing {}.{}.".format(section, key))
-            parser.remove_option(section, key)
+        if target[1] is not None:
+            logger.echo("Removing {}.{}.".format(*target))
+            parser.remove_option(target[0], target[1])
         else:
-            parser.remove_section(section)
+            parser.remove_section(target[0])

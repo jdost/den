@@ -16,9 +16,12 @@ Config settings::
         # on the host system, if no host port is specified, it will be the same
         # port
 """
+from typing import Mapping, Optional, Sequence
+
 import click
 
 from den import log, shell, utils
+from den.context import Context
 
 logger = log.get_logger(__name__)
 DOCKER_CREATE_CMD = (
@@ -45,7 +48,7 @@ class UndefinedImageException(click.ClickException):
     files.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         click.ClickException.__init__(
             self, "There is no defined image to build off of."
         )
@@ -69,16 +72,22 @@ class UndefinedImageException(click.ClickException):
 )
 @click.argument("name", required=False, default=None)  # Name for the den
 @click.argument("cmd", nargs=-1)  # Command to run in container
-@click.pass_obj
-def create_den(
-    context, start, image, with_docker, name, cmd
-):  # pylint: disable=too-many-arguments
+@click.pass_context
+def create_den(  # pylint: disable=too-many-arguments
+    ctx: click.Context,
+    start: bool,
+    image: str,
+    with_docker: bool,
+    name: str,
+    cmd: Sequence[str],
+) -> None:
     """Creates the development den
 
     This is a reusable container created based on the argument and configured
     definition.  By default it is not started (just created, so a
     `docker ps -a` will show the container, but it won't be running).
     """
+    context = ctx.obj
     use_default = image is None
     if use_default:
         logger.info("No image provided, using default")
@@ -108,7 +117,6 @@ def create_den(
         ports.append(
             "--publish {}:{}".format(guest, host) if host else str(guest)
         )
-    ports = " ".join(ports) + " " if ports else ""
 
     # NOTE: tried to do creation using the API but volume mounting didn't work
     cmd = " {}".format(cmd) if cmd else ""
@@ -120,7 +128,7 @@ def create_den(
         shell.run(
             DOCKER_CREATE_CMD.format(
                 name=name,
-                ports=ports,
+                ports=" ".join(ports) + " " if ports else "",
                 cwd=cwd,
                 image=image,
                 extra_args=" ".join(extra_args),
@@ -130,14 +138,14 @@ def create_den(
         )
 
     if start:
-        start_den.callback(name)
+        ctx.invoke(start_den, name=name)
 
 
 # > den start [<name>]
 @click.command("start", short_help="Start an existing den")
 @click.argument("name", required=False, default=None)  # Name for the den
 @click.pass_obj
-def start_den(context, name):
+def start_den(context: Context, name: Optional[str]) -> None:
     """Starts the specified development den
     """
     name = name if name else context.default_name
@@ -157,10 +165,13 @@ def start_den(context, name):
     help="Delete the den after stopping it",
 )
 @click.argument("name", required=False, default=None)  # Name for the den
-@click.pass_obj
-def stop_den(context, delete, name=None):
+@click.pass_context
+def stop_den(
+    ctx: click.Context, delete: bool, name: Optional[str] = None
+) -> None:
     """Stops the specified develoment den
     """
+    context = ctx.obj
     if not isinstance(delete, bool):
         name = delete
         delete = False
@@ -170,7 +181,7 @@ def stop_den(context, delete, name=None):
         shell.run(DOCKER_STOP_CMD.format(**locals()), quiet=shell.ALL)
 
     if delete:
-        delete_den.callback([name])
+        ctx.invoke(delete_den, [name])
 
 
 # > den delete [<name>]
@@ -183,13 +194,20 @@ def stop_den(context, delete, name=None):
 )  # Name for the den
 @click.pass_obj
 @utils.uses_docker
-def delete_den(context, all, names):  # pylint: disable=redefined-builtin
+def delete_den(
+    context: Context,
+    all: bool,  # pylint: disable=redefined-builtin
+    names: Sequence[str],
+) -> None:
     """Deletes the specified development den(s)
 
     Will attempt to delete the specified dens.
     """
     if all:
-        den_filter = {"all": True, "filters": {"label": "den"}}
+        den_filter: Mapping[str, object] = {
+            "all": True,
+            "filters": {"label": "den"},
+        }
         names = [
             container.name
             for container in context.docker.containers.list(**den_filter)
@@ -221,13 +239,16 @@ def delete_den(context, all, names):  # pylint: disable=redefined-builtin
 )
 @click.pass_obj
 @utils.uses_docker
-def list_dens(context, running):
+def list_dens(context: Context, running: bool) -> None:
     """List the existing den containers
 
     Filters based on the metadata label applied and gives a simple summary of
     the state of containers running.
     """
-    kwargs = {"all": not running, "filters": {"label": "den"}}
+    kwargs: Mapping[str, object] = {
+        "all": not running,
+        "filters": {"label": "den"},
+    }
     output = [["NAME", "STATUS", "IMAGE"]]
     containers = context.docker.containers.list(**kwargs)
     logger.info("Found %i containers.", len(containers))

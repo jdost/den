@@ -6,6 +6,7 @@ resolution states.
 """
 import configparser
 import os.path
+from typing import Any, Dict, Optional
 
 import den.utils as utils
 
@@ -19,7 +20,7 @@ class Config:
     from.
     """
 
-    def __init__(self, *files):
+    def __init__(self, *files: str) -> None:
         self.parser = configparser.ConfigParser()
         base = None
 
@@ -34,7 +35,7 @@ class Config:
             if os.path.exists(f):
                 self.parser.read(f)
 
-    def get(self, section, key, default=None):
+    def get(self, section: str, key: str, default: Optional[Any] = None) -> Any:
         """Value lookup with default value
 
         Performs the section::key lookup in the config file hiearchy and will
@@ -47,7 +48,7 @@ class Config:
         except configparser.NoOptionError:
             return default
 
-    def get_section(self, section):
+    def get_section(self, section: str) -> Dict[str, Any]:
         """Get dict of a section's key value pairs"""
         try:
             return dict(self.parser.items(section))

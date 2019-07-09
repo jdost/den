@@ -3,48 +3,16 @@ Defines the top level CLI object for den, this is in conjunction with the
 click_ext module for dictating and configuring the top level click handler.
 """
 import logging
-import os
+from typing import Any
 
 import click
-import docker as _docker
 
-from den import CONFIG_FILES, CONTEXT_SETTINGS, log, utils
+from den import CONTEXT_SETTINGS, log, utils
 from den.__version__ import __version__
 from den.commands.alias import AliasGroup
-from den.config import Config
+from den.context import Context
 
 logger = log.get_logger("den")
-
-
-class Context:
-    """Cached context collector for commands
-
-    Meant to provide lazy definitions for various contextually shared objects
-    that commands will want without the specifics of their instantiation or
-    definition being distributed among the commands.
-    """
-
-    debug: bool
-
-    @utils.cached_property
-    def config(self) -> Config:  # pylint: disable=no-self-use
-        """(cached property) Contextual configuration"""
-        return Config(*CONFIG_FILES)
-
-    @utils.cached_property
-    def cwd(self) -> str:  # pylint: disable=no-self-use
-        """(cached property) Determined root directory"""
-        return utils.base_dir(".git", ".den.ini")
-
-    @utils.cached_property
-    def docker(self) -> _docker.DockerClient:  # pylint: disable=no-self-use
-        """(cached property) Docker client interface"""
-        return _docker.from_env()
-
-    @utils.cached_property
-    def default_name(self) -> str:
-        """(cached property) inferred project name"""
-        return os.path.basename(self.cwd)
 
 
 @click.group("den", context_settings=CONTEXT_SETTINGS, cls=AliasGroup)
@@ -76,7 +44,7 @@ def version() -> None:
     logger.echo("Den version {}".format(__version__))
 
 
-def run() -> None:
+def run() -> Any:
     """Setup and execute the top level click group."""
     utils.bind_module("den.commands.dens", den)
     utils.bind_module("den.commands.config", den)

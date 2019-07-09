@@ -8,13 +8,31 @@ import functools
 import importlib
 import os
 import os.path
+from pathlib import Path
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import click
 
 HOME = os.path.expanduser("~")
+FuncT = TypeVar("FuncT", bound=Callable[..., object])
+_T = TypeVar("_T")
 
 
-def align_table(table_data, max_length=99999, min_length=1, seperator=" "):
+def align_table(
+    table_data: Sequence[Any],
+    max_length: int = 99999,
+    min_length: int = 1,
+    seperator: str = " ",
+) -> Generator[str, None, None]:
     """Align columnar data for output
 
     Takes a 2 dimensional set of data consisting of rows of columns and formats
@@ -35,18 +53,15 @@ def align_table(table_data, max_length=99999, min_length=1, seperator=" "):
         yield format_str.format(*row)
 
 
-def base_dir(*matches):
+def base_dir(*matches: str) -> Union[str, Path]:
     """Climb the file system until finding one of the matching indicators
 
     These indicators are files to look in the directory to indicate that it is
     the base directory to work out.  Example using `.git` will find the base
     directory of a git repositor.
     """
-    if not matches:
-        matches = [".git"]
-
     directory = os.getcwd()
-    while not any([os.path.exists(m) for m in matches]):
+    while not any([os.path.exists(str(m)) for m in matches or [".git"]]):
         os.chdir("..")
         if os.getcwd() == "/" or os.getcwd() == HOME:
             os.chdir(directory)
@@ -57,7 +72,7 @@ def base_dir(*matches):
     return value
 
 
-def bind_module(module_name, parent_cmd):
+def bind_module(module_name: str, parent_cmd: click.Group) -> None:
     """Binds commands to a parent subcommand from a module
 
     This is currently a work in progress on module discovery, this will
@@ -77,7 +92,7 @@ def bind_module(module_name, parent_cmd):
             parent_cmd.add_command(member)
 
 
-def cached_property(func):
+def cached_property(func: Callable[..., Any]) -> Any:
     """Property decorator that creates a cached/memoized member variable
 
     Like the `@property` decorator but only determines the value once and then
@@ -85,7 +100,7 @@ def cached_property(func):
     """
     cached_name = "_" + func.__name__
 
-    def cached_caller(self):
+    def cached_caller(self: object) -> Any:
         """decorated function"""
         if not hasattr(self, cached_name):
             setattr(self, cached_name, func(self))
@@ -95,7 +110,7 @@ def cached_property(func):
     return property(cached_caller)
 
 
-def dict_merge(*srcs, **kwargs):
+def dict_merge(*srcs: Dict[str, object], **kwargs: object) -> Dict[str, object]:
     """Merge multiple dictionaries together
     Takes a set of dictionaries (and addition key value pairs) and merges into
     a new dictionary.  This attempts to keep the passed in dictionaries
@@ -104,17 +119,17 @@ def dict_merge(*srcs, **kwargs):
     If you use the `_deep` keyword, any values that are dictionaries will be
     merged rather than overwritten.
     """
-    merged_dict = {}
+    merged_dict: Dict[str, object] = {}
     deep = kwargs.get("_deep", False)
 
-    def deep_merge(key, value):  # the recursive check and call
+    def deep_merge(key: str, value: object) -> None:
         """Recursive merging check
         This will deep merge dictionary values, otherwise it will overwrite
         """
         if isinstance(value, dict):
-            merged_dict[key] = dict_merge(
-                merged_dict.get(key, {}), value, _deep=deep
-            )
+            root = merged_dict.get(key, {})
+            assert isinstance(root, dict)
+            merged_dict[key] = dict_merge(root, value, _deep=deep)
         else:
             merged_dict[key] = value
 
@@ -138,7 +153,7 @@ class DockerConnectionException(click.ClickException):
     this.
     """
 
-    def __init__(self, cause):
+    def __init__(self, cause: str) -> None:
         msg = (
             "{}, ensure that docker is running and that you have "
             "permissions to talk to it."
@@ -146,7 +161,7 @@ class DockerConnectionException(click.ClickException):
         click.ClickException.__init__(self, msg)
 
 
-def uses_docker(func):
+def uses_docker(func: FuncT) -> FuncT:
     """Docker execution decorator
 
     Wraps the function/command to capture raised errors when trying to
@@ -160,7 +175,7 @@ def uses_docker(func):
     logger = log.get_logger(__name__)
 
     @functools.wraps(func)
-    def capture_function(*args, **kwargs):
+    def capture_function(*args: Any, **kwargs: Any) -> Any:
         """Decorated wrapper around capturing docker related errors and raising
         a clean error for output.
         """
@@ -169,11 +184,11 @@ def uses_docker(func):
             debug = args[0].debug
 
         try:
-            func(*args, **kwargs)
+            return func(*args, **kwargs)
         except RequestsConnectionError:
             logger.error("Docker connection failed.")
             if debug:
                 raise
             raise DockerConnectionException("Failed to connect to the daemon")
 
-    return capture_function
+    return cast(FuncT, capture_function)

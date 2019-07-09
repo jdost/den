@@ -34,7 +34,7 @@ LEVEL_LOOKUP = [
 CWD = str(Path.cwd())
 
 
-def _format(msg):
+def _format(msg: str) -> str:
     """Format message using clean substitutions
 
     These use some colorama options to fix emphasis or other markings for a
@@ -147,7 +147,7 @@ class CLILogger(logging.Logger):
 
         # uses the `getattr` call to bypass a lack of type signature for the
         # private _log method
-        return getattr(super(), "_log")(
+        getattr(super(), "_log")(
             level,
             msg,
             args=args,
@@ -157,7 +157,7 @@ class CLILogger(logging.Logger):
         )
 
     @contextlib.contextmanager
-    def report_success(self, msg) -> Iterator[None]:
+    def report_success(self, msg: str) -> Iterator[None]:
         """Context wrapper for reporting success of a step
 
         Prints the step text and then a success or failure suffix depending on
