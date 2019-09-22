@@ -148,7 +148,11 @@ def create_den(  # pylint: disable=too-many-arguments
 def start_den(context: Context, name: Optional[str]) -> None:
     """Starts the specified development den
     """
-    name = name if name else context.default_name
+    name = (
+        name
+        if name
+        else context.config.get("image", "name", context.default_name)
+    )  # Honor the configured default
     logger.echo("Starting `%s` environment...", name)
     shell.run(
         DOCKER_START_CMD.format(**locals()), interactive=True, suppress=True

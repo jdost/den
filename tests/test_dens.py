@@ -156,6 +156,17 @@ class DenStartTest(DensTest):
         self.invoke.start_den("explicit")  # explicitly start "foo"
         self.assertExecuted("docker start --attach --interactive explicit")
 
+    def test_default_override(self):
+        """ `den start`
+        This tests that there is an option in the config to override the
+        implicit image default.
+        """
+        with self.with_config(image={"name": "override"}):
+            self.invoke.start_den()  # implicitly start
+            self.assertExecuted(
+                "docker start --attach --interactive override"
+            )  # the default_name is overriden to "override"
+
 
 class DenStopTest(DensTest):
     def test_basic(self):
