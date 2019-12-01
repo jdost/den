@@ -1,4 +1,5 @@
-PHONY: clean test lint mypy pylint format isort black unittest shell
+DEFAULT: test
+PHONY: DEFAULT clean test lint mypy pylint format isort black unittest shell
 PYTHON=venv/bin/python
 
 src/setup.py:
@@ -13,6 +14,8 @@ clean:
 	rm -f src/*/*/*.pyc
 	rm -rf *.egg-info
 	rm -rf dist/
+	rm -rf .mypy_cache
+	rm -rf .pytest_cache
 
 test: format lint unittest
 
