@@ -1,12 +1,24 @@
 """ Test utilities, these are included mocked constructs to aid in
 writing tests against the internals of the utility.
 """
+import re
 import unittest
 from contextlib import contextmanager
 from copy import copy
 from io import StringIO
 from types import ModuleType
-from typing import Any, Callable, Dict, Generator, Optional, TypeVar, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+    cast,
+)
 
 import click
 from click.testing import CliRunner, Result
@@ -111,6 +123,14 @@ class TestCase(unittest.TestCase):
 
     def assertOutput(self, left: str, right: str) -> None:
         self.assertEqual(left.strip(), right.strip())
+
+    def assertCommandsEqual(
+        self, left: Tuple[str], right: Sequence[str]
+    ) -> None:
+        cleaned_left: List[str] = []
+        for arg in left:
+            cleaned_left.append(re.sub(" +", " ", arg.strip()))
+        self.assertEqual(cleaned_left, right)
 
     @contextmanager
     def with_config(

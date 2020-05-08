@@ -10,7 +10,7 @@ import re
 import sys
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Dict, Iterator, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, Mapping, Optional, Tuple, Union
 
 import click
 
@@ -131,19 +131,20 @@ class CLILogger(logging.Logger):
         self,
         level: int,
         msg: Any,
-        args: Tuple[Any],
+        args: Union[Tuple[Any, ...], Mapping[str, Any]],
         exc_info: _ExcInfoType = None,
         extra: Optional[Dict[str, Any]] = None,
         stack_info: bool = False,
+        stacklevel: int = 1,
     ) -> None:
         """Wraps the log caller to allow for tracking if hanging log lines
         should be closed before outputting new messages.  This acts as a
         passthrough with the one goal of printing pending newlines to avoid
         for jumbled log output.
         """
-        if CLILogger._pending_log:
+        if self._pending_log:
             click.echo("")
-            CLILogger._pending_log = False
+            self._pending_log = False
 
         # uses the `getattr` call to bypass a lack of type signature for the
         # private _log method
@@ -154,6 +155,7 @@ class CLILogger(logging.Logger):
             exc_info=exc_info,
             extra=extra,
             stack_info=stack_info,
+            stacklevel=stacklevel,
         )
 
     @contextlib.contextmanager

@@ -6,6 +6,7 @@ output of a command, or just checking if a command lives in the $PATH.
 """
 import distutils.spawn  # pylint: disable=no-name-in-module,import-error
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -58,6 +59,7 @@ def run(  # pylint: disable=too-many-arguments
     current directory of the command, and whether to wait for the command to
     finish.
     """
+    cmd = re.sub(" +", " ", cmd)  # Remove extraneous whitespace
     if interactive:  # don't quiet the output streams interactively
         logger.debug("Running command `%s` interactively.", cmd)
         quiet = 0

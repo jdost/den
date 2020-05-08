@@ -169,8 +169,10 @@ def uses_docker(func: FuncT) -> FuncT:
     meant to capture possible configuration errors or connection problems
     and cleanly report it up to the user.
     """
-    from requests.exceptions import ConnectionError as RequestsConnectionError
-    from den import log
+    from requests.exceptions import (  # pylint: disable=import-outside-toplevel
+        ConnectionError as RequestsConnectionError,
+    )
+    from den import log  # pylint: disable=import-outside-toplevel
 
     logger = log.get_logger(__name__)
 

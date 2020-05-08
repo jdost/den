@@ -63,7 +63,7 @@ def _expand(
 
 @contextlib.contextmanager
 def _modify_config(
-    config_file: str
+    config_file: str,
 ) -> Generator[configparser.ConfigParser, None, None]:
     """Config modification context
 

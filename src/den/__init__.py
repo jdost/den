@@ -21,7 +21,7 @@ CONFIG_FILES = [LOCAL_CONFIG_FILE, USER_CONFIG_FILE]
 
 def main() -> None:
     """Setup and call of the object"""
-    import den.cli as cli
+    import den.cli as cli  # pylint: disable=import-outside-toplevel
 
     cli.run()
 

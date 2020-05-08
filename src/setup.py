@@ -30,7 +30,7 @@ setup(
         "dev": [
             "black>=19.3b0",
             "isort>=4.3.21",
-            "mypy>=0.711",
+            "mypy>=0.770",
             "pylint>=2.3.1",
             "pytest>=5.0.0",
         ]

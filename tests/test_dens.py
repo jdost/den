@@ -22,7 +22,9 @@ class DensTest(den.test.TestCase):
         self.shell.assert_called()
 
         for idx, cmd in enumerate(cmds):
-            self.assertEqual(self.shell.call_args_list[idx][0], tuple([cmd]))
+            self.assertCommandsEqual(
+                self.shell.call_args_list[idx][0], list([cmd])
+            )
 
         self.shell.reset_mock()
 

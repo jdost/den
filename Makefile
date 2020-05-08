@@ -1,9 +1,8 @@
-DEFAULT: test
-PHONY: DEFAULT clean test lint mypy pylint format isort black unittest shell
+.PHONY: DEFAULT clean test lint mypy pylint format isort black unittest shell
 PYTHON=venv/bin/python
 
+DEFAULT: test
 src/setup.py:
-
 venv: src/setup.py
 	@python3 -m venv --prompt den venv
 	${PYTHON} -m pip install -U -e src/[dev]
@@ -23,7 +22,7 @@ lint: pylint mypy
 
 mypy: venv
 	@echo " >> Type-checking codebase with mypy"
-	@MYPYPATH=./tests/stubs ${PYTHON} -m mypy --strict src && echo "OK"
+	@MYPYPATH=./tests/stubs ${PYTHON} -m mypy src && echo "OK"
 	@echo ""
 
 pylint: venv
