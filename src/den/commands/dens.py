@@ -26,6 +26,7 @@ from den.context import Context
 logger = log.get_logger(__name__)
 DOCKER_CREATE_CMD = (
     "docker create --hostname {name} --interactive "
+    "--label den --name {name} {ports} --tty --volume "
     "{cwd}:/src {extra_args} {image}"
 )
 DOCKER_START_CMD = "docker start --attach --interactive {name}"
